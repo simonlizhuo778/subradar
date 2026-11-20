@@ -1,0 +1,17 @@
+{
+  "name": "subradar",
+  "version": "0.1.0",
+  "private": true,
+  "packageManager": "pnpm@11.22.0",
+  "description": "订阅雷达 —— 从你的真实账单里,把你忘了的订阅自动找出来",
+  "scripts": {
+    "dev": "pnpm -r --parallel --stream dev",
+    "dev:server": "pnpm -C server dev",
+    "dev:web": "pnpm -C web dev",
+    "build": "pnpm -C server build && pnpm -C web build",
+    "test": "pnpm -C server test",
+    "db:push": "pnpm -C server exec prisma db push",
+    "db:seed": "pnpm -C server exec prisma db seed",
+    "setup": "pnpm install && pnpm -C server exec prisma generate && pnpm db:push && pnpm db:seed"
+  }
+}

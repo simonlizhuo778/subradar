@@ -1,0 +1,188 @@
+// 订阅雷达 SubRadar 数据模型
+// 说明:SQLite 不支持 Prisma 的 enum 类型,枚举字段一律使用 String,
+// 取值在应用层校验(与《需求文档》第 5 章一一对应)。
+// 生产环境可将 provider 切换为 postgresql 并将枚举字段升级为 @enum。
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           Int      @id @default(autoincrement())
+  email        String   @unique
+  passwordHash String
+  displayName  String?
+  createdAt    DateTime @default(now())
+
+  categories       Category[]
+  subscriptions    Subscription[]
+  billImports      BillImport[]
+  billTransactions BillTransaction[]
+  candidates       SubscriptionCandidate[]
+  aiSetting        AiSetting?
+  usageLogs        UsageLog[]
+}
+
+model Category {
+  id     Int     @id @default(autoincrement())
+  userId Int
+  user   User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name   String
+  icon   String?
+  color  String?
+  sort   Int     @default(0)
+
+  subscriptions Subscription[]
+
+  @@unique([userId, name])
+}
+
+model Subscription {
+  id               Int       @id @default(autoincrement())
+  userId           Int
+  user             User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name             String
+  logoUrl          String?
+  categoryId       Int?
+  category         Category? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  amount           Float
+  currency         String    @default("CNY")
+  /// monthly | quarterly | yearly | weekly | custom
+  cycle            String
+  customDays       Int?
+  firstPaymentDate DateTime
+  nextPaymentDate  DateTime
+  /// alipay | wechat | apple | card | other
+  paymentMethod    String?
+  autoRenew        Boolean   @default(false)
+  notes            String?
+  /// active | paused | cancelled | trial
+  status           String    @default("active")
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  payments   Payment[]
+  reminders  Reminder[]
+  candidates SubscriptionCandidate[]
+
+  @@index([userId, nextPaymentDate])
+}
+
+model Payment {
+  id             Int          @id @default(autoincrement())
+  subscriptionId Int
+  subscription   Subscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+  amount         Float
+  currency       String
+  paidAt         DateTime
+  /// manual | candidate | import
+  source         String       @default("manual")
+  createdAt      DateTime     @default(now())
+
+  @@index([subscriptionId, paidAt])
+}
+
+model BillImport {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /// alipay | wechat | other
+  source    String
+  filename  String
+  totalRows Int      @default(0)
+  validRows Int      @default(0)
+  /// parsed | detected | confirmed | failed
+  status    String   @default("parsed")
+  createdAt DateTime @default(now())
+
+  transactions BillTransaction[]
+}
+
+model BillTransaction {
+  id         Int        @id @default(autoincrement())
+  importId   Int
+  import     BillImport @relation(fields: [importId], references: [id], onDelete: Cascade)
+  userId     Int
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  occurredAt DateTime
+  merchant   String
+  amount     Float
+  /// in | out | neutral
+  direction  String
+  memo       String?
+  /// 原始行内容(JSON),便于排查解析问题
+  raw        String?
+  createdAt  DateTime   @default(now())
+
+  @@index([userId, merchant])
+}
+
+model SubscriptionCandidate {
+  id             Int           @id @default(autoincrement())
+  userId         Int
+  user           User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /// image | voice | text | bill | email
+  source         String
+  /// 原始输入(转写文本 / 图片存储路径 / 流水摘要),供用户回看
+  rawRef         String?
+  /// 抽取结果 JSON(字段见《需求文档》附录 A)
+  extracted      String
+  confidence     Float         @default(0)
+  /// pending | confirmed | dismissed
+  status         String        @default("pending")
+  subscriptionId Int?
+  subscription   Subscription? @relation(fields: [subscriptionId], references: [id], onDelete: SetNull)
+  createdAt      DateTime      @default(now())
+  decidedAt      DateTime?
+}
+
+model AiSetting {
+  id           Int      @id @default(autoincrement())
+  userId       Int      @unique
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /// deepseek | zhipu | openai | gemini | custom
+  provider     String
+  baseUrl      String?
+  /// AES-256-GCM 密文,绝不明文返回前端
+  apiKeyCipher String
+  model        String?
+  visionModel  String?
+  asrModel     String?
+  dailyLimit   Int      @default(50)
+  updatedAt    DateTime @updatedAt
+}
+
+model UsageLog {
+  id               Int      @id @default(autoincrement())
+  userId           Int
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /// image | voice | text | ...
+  feature          String
+  provider         String?
+  model            String?
+  promptTokens     Int      @default(0)
+  completionTokens Int      @default(0)
+  latencyMs        Int      @default(0)
+  ok               Boolean  @default(true)
+  createdAt        DateTime @default(now())
+
+  @@index([userId, createdAt])
+}
+
+model Reminder {
+  id             Int          @id @default(autoincrement())
+  subscriptionId Int
+  subscription   Subscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+  remindDate     DateTime
+  daysBefore     Int          @default(3)
+  /// email | web
+  channel        String       @default("email")
+  /// pending | sent | failed
+  status         String       @default("pending")
+  sentAt         DateTime?
+}

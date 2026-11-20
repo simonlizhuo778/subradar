@@ -1,0 +1,23 @@
+packages:
+  - server
+  - web
+
+# 使用扁平 node_modules(真实目录,无 symlink 链):
+# 1) 规避 prisma / esbuild / @nestjs/cli 在 pnpm 严格隔离下的偶发解析问题;
+# 2) 本项目是应用而非库,不需要防幽灵依赖的强隔离。
+nodeLinker: hoisted
+
+# pnpm 11+:依赖构建脚本白名单(prisma 引擎下载、esbuild 二进制等)
+# @scarf/scarf 是 prisma 带的遥测组件,直接拒绝
+allowBuilds:
+  prisma: true
+  '@prisma/client': true
+  '@prisma/engines': true
+  esbuild: true
+  '@scarf/scarf': false
+
+# 慢网络调优(pnpm 11 设置项统一放这里)
+fetchTimeout: 600000
+fetchRetries: 10
+fetchRetryMintimeout: 2000
+fetchRetryMaxtimeout: 15000
