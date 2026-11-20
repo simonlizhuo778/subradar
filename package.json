@@ -12,6 +12,7 @@
     "test": "pnpm -C server test",
     "db:push": "pnpm -C server exec prisma db push",
     "db:seed": "pnpm -C server exec prisma db seed",
+    "db:reset": "pnpm db:push && pnpm db:seed",
     "setup": "pnpm install && pnpm -C server exec prisma generate && pnpm db:push && pnpm db:seed"
   }
 }

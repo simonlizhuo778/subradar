@@ -208,3 +208,16 @@ export interface ReminderItem {
     categoryColor: string | null;
   };
 }
+
+export interface AiSuggestion {
+  title: string;
+  detail: string;
+  priority: 'high' | 'medium' | 'low';
+  related: string[];
+  potentialYearlySaving: number | null;
+}
+
+export interface SuggestionsResult {
+  basedOn: number;
+  suggestions: AiSuggestion[];
+}

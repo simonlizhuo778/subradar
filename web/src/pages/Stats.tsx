@@ -1,9 +1,16 @@
 import { useEffect, useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import type { EChartsCoreOption } from 'echarts/core';
 import { EChart } from '@/components/EChart';
 import { api } from '@/lib/api';
 import { cycleLabel, money, relativeDue } from '@/lib/format';
-import type { CategoryStatRow, MonthlyPoint, TopSubscriptionRow } from '@/lib/types';
+import type {
+  AiSettingsInfo,
+  CategoryStatRow,
+  MonthlyPoint,
+  SuggestionsResult,
+  TopSubscriptionRow,
+} from '@/lib/types';
 
 const CHART_COLORS = [
   '#0f172a',
@@ -23,6 +30,10 @@ export function Stats() {
   const [byCategory, setByCategory] = useState<CategoryStatRow[] | null>(null);
   const [top, setTop] = useState<TopSubscriptionRow[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [aiInfo, setAiInfo] = useState<AiSettingsInfo | null>(null);
+  const [suggestions, setSuggestions] = useState<SuggestionsResult | null>(null);
+  const [generating, setGenerating] = useState(false);
+  const [suggestError, setSuggestError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -41,10 +52,27 @@ export function Stats() {
       .catch((e) => {
         if (!cancelled) setError(e instanceof Error ? e.message : '加载失败');
       });
+    void api<AiSettingsInfo>('/settings/ai')
+      .then((info) => {
+        if (!cancelled) setAiInfo(info);
+      })
+      .catch(() => undefined);
     return () => {
       cancelled = true;
     };
   }, []);
+
+  async function generateSuggestions() {
+    setSuggestError(null);
+    setGenerating(true);
+    try {
+      setSuggestions(await api<SuggestionsResult>('/ai/suggestions', { method: 'POST' }));
+    } catch (e) {
+      setSuggestError(e instanceof Error ? e.message : '生成失败');
+    } finally {
+      setGenerating(false);
+    }
+  }
 
   const currencies = useMemo(() => {
     const set = new Set<string>();
@@ -225,6 +253,80 @@ export function Stats() {
             <li className="py-6 text-center text-sm text-slate-400">还没有生效的订阅</li>
           )}
         </ul>
+      </div>
+
+      <div className="rounded-xl border border-slate-200 bg-white p-5">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <h2 className="font-semibold text-slate-900">AI 省钱建议</h2>
+            <p className="text-xs text-slate-400">
+              基于你的生效订阅生成可执行的合并/降级/取消建议(消耗模型额度)
+            </p>
+          </div>
+          <button
+            onClick={() => void generateSuggestions()}
+            disabled={generating || aiInfo?.configured === false}
+            className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-slate-700 disabled:opacity-50"
+          >
+            {generating ? '生成中…' : suggestions ? '重新生成' : '生成建议'}
+          </button>
+        </div>
+
+        {aiInfo && !aiInfo.configured && (
+          <p className="mt-3 text-sm text-slate-500">
+            还没有配置 AI,先到
+            <Link to="/settings" className="mx-1 font-medium underline">
+              设置 → AI 接入
+            </Link>
+            填写 API Key。
+          </p>
+        )}
+        {suggestError && (
+          <p className="mt-3 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-700">
+            {suggestError}
+          </p>
+        )}
+
+        {suggestions && (
+          <ul className="mt-4 space-y-3">
+            {suggestions.suggestions.map((s, index) => (
+              <li key={index} className="rounded-lg border border-slate-100 bg-slate-50/60 p-3">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span
+                    className={`rounded-full px-2 py-0.5 text-xs ${
+                      s.priority === 'high'
+                        ? 'bg-rose-100 text-rose-600'
+                        : s.priority === 'medium'
+                          ? 'bg-amber-100 text-amber-600'
+                          : 'bg-slate-200 text-slate-500'
+                    }`}
+                  >
+                    {s.priority === 'high' ? '高优先' : s.priority === 'medium' ? '中优先' : '低优先'}
+                  </span>
+                  <span className="font-medium text-slate-900">{s.title}</span>
+                  {s.potentialYearlySaving !== null && (
+                    <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-700">
+                      约省 ¥{s.potentialYearlySaving}/年
+                    </span>
+                  )}
+                </div>
+                <p className="mt-1.5 text-sm text-slate-600">{s.detail}</p>
+                {s.related.length > 0 && (
+                  <div className="mt-1.5 flex flex-wrap gap-1">
+                    {s.related.map((name) => (
+                      <span key={name} className="rounded bg-white px-1.5 py-0.5 text-xs text-slate-400">
+                        {name}
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </li>
+            ))}
+            {suggestions.suggestions.length === 0 && (
+              <li className="py-3 text-sm text-slate-400">模型没有给出建议,再试一次?</li>
+            )}
+          </ul>
+        )}
       </div>
     </div>
   );

@@ -31,6 +31,41 @@ Web 先行 · AI 快速录入(自带 API Key)· 支付宝/微信账单导入 · 
 | W3 | AI 快速录入:BYOK 设置、截图识别、文本抽取、待确认队列 | ✅ |
 | W4 | 语音输入 + 统计图表(ECharts) | ✅ |
 | W5 | 支付宝/微信账单导入 + 周期扣款识别 + 到期提醒 | ✅ |
+| W6 | Docker 部署、README 打磨、AI 省钱建议(P2) | ✅ |
+
+## 架构
+
+```mermaid
+graph LR
+  subgraph Web["前端 web(React 19 + Vite + Tailwind)"]
+    UI[页面:概览 / 订阅 / 日历 / AI 录入 / 账单导入 / 统计 / 设置]
+  end
+  subgraph Server["后端 server(NestJS + Prisma)"]
+    AUTH[JWT 认证]
+    SUBS[订阅 CRUD / 日历 / 统计]
+    AI[AI 抽取 / 建议<br/>BYOK + AES-256-GCM]
+    BILLS[账单解析 + 周期识别]
+    REMIND[提醒扫描<br/>追平 + 幂等]
+    PRISMA[(Prisma Client)]
+  end
+  DB[(SQLite)]
+  LLM[LLM Provider<br/>OpenAI 兼容协议]
+  USER((用户自带 API Key))
+
+  UI -->|REST /api| AUTH
+  UI --> SUBS
+  UI --> AI
+  UI --> BILLS
+  SUBS --> PRISMA
+  AI --> PRISMA
+  BILLS --> PRISMA
+  REMIND --> PRISMA
+  PRISMA --> DB
+  AI -->|Key 加密存取| LLM
+  USER -->|设置页填入| AI
+```
+
+核心领域逻辑(周期日期推算、成本折算、周期识别算法)全部是**纯函数 + 单元测试**,不依赖任何框架 —— 面试可直接讲。
 | W6 | 部署上线 + README 打磨 + 演示 GIF | ⬜ |
 
 ## 快速开始
@@ -73,7 +108,26 @@ pnpm dev
 - 每天自动扫描(服务启动时也会追平一次):3 天内将扣款的订阅生成提醒(幂等,同一周期只提醒一次);
 - 顶栏 🔔 铃铛查看提醒列表,可开启浏览器系统通知(新提醒弹出桌面通知);
 - 自动续费的订阅逾期会被自动「追平」:推进下次扣款日并补记跳过的扣款;
-- 邮件提醒规划在 W6(需配置 SMTP)。
+- 邮件提醒为后续可选(需配置 SMTP)。
+
+## 部署(Docker 一键起)
+
+```bash
+cp .env.docker.example .env.docker
+# 编辑 .env.docker:换成强随机的 JWT_SECRET 与 MASTER_KEY(64 位 hex)
+docker compose up -d --build
+```
+
+- 访问 `http://localhost:8080`(`.env.docker` 里 `WEB_PORT` 可改);
+- 默认 `SEED_DEMO=true` 自动创建演示账号;
+- SQLite 数据落在 `./docker-data/`,重建容器数据不丢;
+- 任何云主机 / NAS 装好 Docker 即可用同样的命令部署;
+- server 镜像启动时自动 `prisma db push` 建表(幂等),compose 健康检查 `/api/health`。
+
+## AI 省钱建议
+
+「统计图表」页底部:基于当前生效订阅,让模型给出合并/降级/取消等可执行建议
+(优先级、涉及订阅、预估年节省),复用 BYOK 配置,计入每日限额。
 
 ## 项目结构
 
@@ -138,11 +192,22 @@ subradar/
 ## 常用命令
 
 ```bash
-pnpm test        # 后端单元测试
+pnpm test        # 后端单元测试(60+ 用例)
 pnpm build       # 构建前后端
 pnpm db:push     # 同步 schema 到 SQLite
 pnpm db:seed     # 重灌演示数据
+pnpm db:reset    # 建表 + 重灌演示数据(一键重置)
 ```
+
+## 后续路线(可选)
+
+- 邮件提醒(SMTP 环境变量)、服务端 ASR(iOS Safari 语音)、
+  OCR 降级链、邮箱账单自动发现、家庭共享、PWA 离线、手机 App(复用同一套 API)。
+
+## 待补充
+
+- [ ] 30 秒演示 GIF / 截图(登录 → AI 截图识别 → 确认入库 → 日历/统计)
+- [ ] 推送 GitHub 后补 CI 徽章与在线 Demo 链接
 
 ## License
 
