@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { api } from '@/lib/api';
 import { SubscriptionForm } from '@/components/SubscriptionForm';
+import { SubscriptionDetail } from '@/components/SubscriptionDetail';
 import {
   STATUS_LABELS,
   cycleLabel,
@@ -28,6 +29,7 @@ export function Subscriptions() {
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<Subscription | null>(null);
   const [busyId, setBusyId] = useState<number | null>(null);
+  const [detailId, setDetailId] = useState<number | null>(null);
 
   useEffect(() => {
     const timer = setTimeout(() => setDebouncedQ(q.trim()), 300);
@@ -184,6 +186,13 @@ export function Subscriptions() {
                   <div className="flex justify-end gap-1">
                     <button
                       disabled={busyId === sub.id}
+                      onClick={() => setDetailId(sub.id)}
+                      className="rounded-md border border-slate-200 px-2.5 py-1 text-xs text-slate-600 transition hover:bg-slate-100 disabled:opacity-40"
+                    >
+                      详情
+                    </button>
+                    <button
+                      disabled={busyId === sub.id}
                       onClick={() => {
                         setEditing(sub);
                         setFormOpen(true);
@@ -238,6 +247,10 @@ export function Subscriptions() {
         onClose={() => setFormOpen(false)}
         onSaved={() => void load()}
       />
+
+      {detailId !== null && (
+        <SubscriptionDetail subscriptionId={detailId} onClose={() => setDetailId(null)} />
+      )}
     </div>
   );
 }

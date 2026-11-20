@@ -154,3 +154,57 @@ export interface TopSubscriptionRow {
   categoryName: string | null;
   categoryColor: string | null;
 }
+
+/* ---------- W5:账单导入 / 扣款历史 / 提醒 ---------- */
+
+export interface SubscriptionDetail extends Subscription {
+  payments: Payment[];
+}
+
+export interface BillImportRecord {
+  id: number;
+  source: string;
+  filename: string;
+  totalRows: number;
+  validRows: number;
+  status: string;
+  createdAt: string;
+}
+
+export interface BillTransactionRow {
+  id: number;
+  importId: number;
+  occurredAt: string;
+  merchant: string;
+  amount: number;
+  direction: string;
+  memo: string | null;
+}
+
+export interface BillImportResult {
+  import: BillImportRecord;
+  failed: { count: number; samples: Array<{ line: number; reason: string }> };
+  candidates: CandidateRow[];
+  message: string;
+}
+
+export interface BillImportDetail {
+  import: BillImportRecord;
+  transactions: BillTransactionRow[];
+  candidates: CandidateRow[];
+}
+
+export interface ReminderItem {
+  id: number;
+  remindDate: string;
+  sentAt: string | null;
+  subscription: {
+    id: number;
+    name: string;
+    amount: number;
+    currency: string;
+    nextPaymentDate: string;
+    categoryName: string | null;
+    categoryColor: string | null;
+  };
+}

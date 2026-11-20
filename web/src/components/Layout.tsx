@@ -1,4 +1,5 @@
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
+import { NotificationBell } from '@/components/NotificationBell';
 import { useAuth } from '@/lib/auth';
 
 interface NavItem {
@@ -14,6 +15,7 @@ const NAV: NavItem[] = [
   { label: '订阅', to: '/subscriptions' },
   { label: '日历', to: '/calendar' },
   { label: 'AI 录入', to: '/ai' },
+  { label: '账单导入', to: '/bills' },
   { label: '统计图表', to: '/stats' },
   { label: '设置', to: '/settings' },
 ];
@@ -65,6 +67,7 @@ export function Layout() {
           </nav>
 
           <div className="flex items-center gap-3">
+            <NotificationBell />
             <span className="hidden text-sm text-slate-600 sm:block">
               {user?.displayName ?? user?.email}
             </span>

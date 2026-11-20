@@ -2,6 +2,7 @@ import { Route, Routes } from 'react-router-dom';
 import { Layout } from '@/components/Layout';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
 import { AiInput } from '@/pages/AiInput';
+import { Bills } from '@/pages/Bills';
 import { Calendar } from '@/pages/Calendar';
 import { Dashboard } from '@/pages/Dashboard';
 import { Login } from '@/pages/Login';
@@ -22,6 +23,7 @@ export default function App() {
           <Route path="subscriptions" element={<Subscriptions />} />
           <Route path="calendar" element={<Calendar />} />
           <Route path="ai" element={<AiInput />} />
+          <Route path="bills" element={<Bills />} />
           <Route path="stats" element={<Stats />} />
           <Route path="settings" element={<Settings />} />
         </Route>

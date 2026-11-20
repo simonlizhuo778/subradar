@@ -3,6 +3,7 @@ import type { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { occurrencesInRange, computeNextPaymentDate } from '../common/utils/cycle-date';
 import type { Cycle } from '../common/utils/cycle-date';
+import { AddPaymentDto } from './dto/add-payment.dto';
 import { CreateSubscriptionDto } from './dto/create-subscription.dto';
 import { ListSubscriptionsDto } from './dto/list-subscriptions.dto';
 import { UpdateSubscriptionDto } from './dto/update-subscription.dto';
@@ -134,6 +135,21 @@ export class SubscriptionsService {
     await this.mustGet(userId, id);
     await this.prisma.subscription.delete({ where: { id } });
     return { ok: true };
+  }
+
+  /** 手动补记一笔扣款 */
+  async addPayment(userId: number, id: number, dto: AddPaymentDto) {
+    const sub = await this.mustGet(userId, id);
+    const paidAt = new Date(dto.paidAt);
+    return this.prisma.payment.create({
+      data: {
+        subscriptionId: sub.id,
+        amount: dto.amount ?? sub.amount,
+        currency: sub.currency,
+        paidAt,
+        source: 'manual',
+      },
+    });
   }
 
   /** 日历视图:展开某月内所有(生效/试用)订阅的扣款日 */

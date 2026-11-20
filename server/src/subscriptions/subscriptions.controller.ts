@@ -2,6 +2,7 @@ import { Body, Controller, Delete, Get, Param, ParseIntPipe, Patch, Post, Query,
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
+import { AddPaymentDto } from './dto/add-payment.dto';
 import { CreateSubscriptionDto } from './dto/create-subscription.dto';
 import { ListSubscriptionsDto } from './dto/list-subscriptions.dto';
 import { UpdateSubscriptionDto } from './dto/update-subscription.dto';
@@ -46,5 +47,15 @@ export class SubscriptionsController {
   @ApiOperation({ summary: '删除订阅(连带扣款历史)' })
   remove(@CurrentUser() user: { id: number }, @Param('id', ParseIntPipe) id: number) {
     return this.subs.remove(user.id, id);
+  }
+
+  @Post(':id/payments')
+  @ApiOperation({ summary: '手动补记一笔扣款(金额不填则用订阅当前金额)' })
+  addPayment(
+    @CurrentUser() user: { id: number },
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: AddPaymentDto,
+  ) {
+    return this.subs.addPayment(user.id, id, dto);
   }
 }
