@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { PrismaService } from '../prisma/prisma.service';
 import { StatsService } from './stats.service';
 
@@ -10,15 +10,10 @@ function makeService() {
   return { service, prisma };
 }
 
-describe('StatsService.monthly(月度扣款序列)', () => {
-  beforeEach(() => {
-    vi.useFakeTimers();
-    vi.setSystemTime(new Date(2026, 10, 20)); // 2026-11-20
-  });
-  afterEach(() => {
-    vi.useRealTimers();
-  });
+/** 固定"当前时间",测试不受真实日期影响(CI/本地/任何时候跑结果一致) */
+const NOW = new Date(2026, 10, 20); // 2026-11-20
 
+describe('StatsService.monthly(月度扣款序列)', () => {
   it('时间轴铺满 12 个月(含无扣款月份),月付每月累计一次', async () => {
     const { service, prisma } = makeService();
     prisma.subscription.findMany.mockResolvedValue([
@@ -33,7 +28,7 @@ describe('StatsService.monthly(月度扣款序列)', () => {
       },
     ]);
 
-    const points = await service.monthly(1, 12);
+    const points = await service.monthly(1, 12, NOW);
 
     expect(points).toHaveLength(12);
     expect(points[0].month).toBe('2026-06'); // 过去 6 个月的起点
@@ -42,8 +37,9 @@ describe('StatsService.monthly(月度扣款序列)', () => {
     expect(points[5]).toMatchObject({ month: '2026-11', count: 1, byCurrency: { CNY: 30 } });
   });
 
-  it('年付只在周年月出现,其他月份为 0 但不断档', async () => {
+  it('年付只在周年月出现,其他月份计数为 0 但不断档', async () => {
     const { service, prisma } = makeService();
+    // 12 月 5 日的年付订阅(月份 0 基:11 = 12 月)
     prisma.subscription.findMany.mockResolvedValue([
       {
         id: 2,
@@ -56,10 +52,13 @@ describe('StatsService.monthly(月度扣款序列)', () => {
       },
     ]);
 
-    const points = await service.monthly(1, 12);
+    const points = await service.monthly(1, 12, NOW);
 
     expect(points[6]).toMatchObject({ month: '2026-12', count: 1, byCurrency: { CNY: 148 } });
-    expect(points[5]).toMatchObject({ month: '2026-11', count: 1, byCurrency: { CNY: 0 } });
+    // 无扣款的月份:count 0,byCurrency 为空对象(时间轴铺满不断档)
+    expect(points[5].month).toBe('2026-11');
+    expect(points[5].count).toBe(0);
+    expect(points[5].byCurrency).toEqual({});
   });
 
   it('多币种按月分组累计', async () => {
@@ -85,7 +84,7 @@ describe('StatsService.monthly(月度扣款序列)', () => {
       },
     ]);
 
-    const points = await service.monthly(1, 4);
+    const points = await service.monthly(1, 4, NOW);
 
     expect(points[0].byCurrency).toEqual({ CNY: 30, USD: 20 });
   });
@@ -123,9 +122,12 @@ describe('StatsService.top(年成本排行)', () => {
 
     const rows = await service.top(1, 8);
 
-    expect(rows[0].name).toBe('年付大订阅');
-    expect(rows[0].yearlyCost).toBe(148);
-    expect(rows[1].yearlyCost).toBeGreaterThan(170); // 15×12=180 量级
-    expect(rows[1].categoryName).toBe('视频');
+    // 月付 15 × 12 ≈ 180/年 > 年付 148 → 月付排第一(排序口径:年成本)
+    expect(rows[0].name).toBe('月付小订阅');
+    expect(rows[0].yearlyCost).toBeCloseTo(180, 0);
+    expect(rows[0].categoryName).toBe('视频');
+    expect(rows[1].name).toBe('年付大订阅');
+    expect(rows[1].yearlyCost).toBe(148);
+    expect(rows[1].categoryName).toBeNull();
   });
 });

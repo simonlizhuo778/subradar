@@ -35,7 +35,8 @@ const CURRENCY_SET = new Set(['CNY', 'USD', 'EUR', 'HKD', 'JPY']);
  */
 export function parseExtraction(raw: string): ExtractedCandidate[] {
   let text = raw.trim();
-  const fence = /^```(?:json)?\s*([\s\S]*?)\s*```$/i.exec(text);
+  // 剥掉 ```json 围栏(允许围栏前后有模型的闲聊文字)
+  const fence = /```(?:json)?\s*([\s\S]*?)\s*```/i.exec(text);
   if (fence) {
     text = fence[1].trim();
   }

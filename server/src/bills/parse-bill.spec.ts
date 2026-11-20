@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { BillFormatError, parseBillAmount, parseBillCsv, parseBillDate } from './parse-bill';
 
-const d = (iso: string) => new Date(`${iso}T00:00:00`);
+/** 用本地日期分量断言(时区无关:CI 的 UTC 与本地 +08 结果一致) */
+const ymd = (date: Date) => `${date.getFullYear()}-${date.getMonth() + 1}-${date.getDate()}`;
 
 describe('parseBillCsv(支付宝格式)', () => {
   const alipayCsv = [
@@ -14,7 +15,7 @@ describe('parseBillCsv(支付宝格式)', () => {
     '2026-05-15 08:00:00,"文化休闲","腾讯科技(深圳)有限公司","腾讯视频VIP会员",支出,"30.00",余额宝,"交易成功",202605151,ORDER01,',
     '2026-06-15 08:00:00,"文化休闲","腾讯科技(深圳)有限公司","腾讯视频VIP会员",支出,"30.00",余额宝,"交易成功",202606151,ORDER02,',
     '2026-07-14 08:00:00,"文化休闲","腾讯科技(深圳)有限公司","腾讯视频VIP会员",支出,"30.00",余额宝,"交易成功",202607141,ORDER03,',
-    '2026-08-15 08:00:00,"文化休闲","腾讯科技(深圳)有限公司","腾讯视频VIP会员",支出,"30.00",余额宝,"交易成功",202608151,ORDER04,',
+    '2026-08-15 08:00:00,"文化休闲","腾讯科技(深圳)有限公司","腾讯视频VIP会员",支出,"30.00",余额宝,"交易成功",202608141,ORDER04,',
     '2026-09-15 08:00:00,"文化休闲","腾讯科技(深圳)有限公司","腾讯视频VIP会员",支出,"30.00",余额宝,"交易成功",202609151,ORDER05,',
     '2026-10-15 08:00:00,"文化休闲","腾讯科技(深圳)有限公司","腾讯视频VIP会员",支出,"30.00",余额宝,"交易成功",202610151,ORDER06,',
     '2026-10-20 12:00:00,"日用百货","美团平台商户","外卖订单",支出,"45.50",余额,"交易成功",202610201,ORDER07,',
@@ -34,13 +35,13 @@ describe('parseBillCsv(支付宝格式)', () => {
     expect(result.failedRows).toEqual([
       { line: 17, reason: '交易时间无法解析:"2026-xx-xx 10:00:00"' },
     ]);
-    expect(result.rows[0]).toMatchObject({
-      merchant: '腾讯科技(深圳)有限公司',
-      amount: 30,
-      direction: 'out',
-      memo: '腾讯视频VIP会员',
-      occurredAt: d('2026-05-15'),
-    });
+    const first = result.rows[0];
+    expect(first.merchant).toBe('腾讯科技(深圳)有限公司');
+    expect(first.amount).toBe(30);
+    expect(first.direction).toBe('out');
+    expect(first.memo).toBe('腾讯视频VIP会员');
+    expect(ymd(first.occurredAt)).toBe('2026-5-15');
+    expect(first.occurredAt.getHours()).toBe(8);
   });
 
   it('找不到表头:抛 BillFormatError', () => {
@@ -63,20 +64,28 @@ describe('parseBillCsv(微信格式)', () => {
   it('微信列名(商品/金额(元)/当前状态)正确映射', () => {
     const result = parseBillCsv(wechatCsv);
     expect(result.rows).toHaveLength(3);
-    expect(result.rows[0]).toMatchObject({
-      merchant: '网易云音乐',
-      amount: 18,
-      memo: '黑胶VIP',
-      occurredAt: d('2026-05-10'),
-    });
+    const first = result.rows[0];
+    expect(first.merchant).toBe('网易云音乐');
+    expect(first.amount).toBe(18);
+    expect(first.memo).toBe('黑胶VIP');
+    expect(ymd(first.occurredAt)).toBe('2026-5-10');
+    expect(first.occurredAt.getHours()).toBe(9);
     expect(result.failedRows).toHaveLength(0);
   });
 });
 
 describe('parseBillDate / parseBillAmount', () => {
-  it('日期:带时间与不带时间都支持', () => {
-    expect(parseBillDate('2026-01-01 08:00:00')).toEqual(d('2026-01-01'));
-    expect(parseBillDate('2026-01-01')).toEqual(d('2026-01-01'));
+  it('日期:带时间与不带时间都支持(按本地时区分量断言)', () => {
+    const withTime = parseBillDate('2026-01-01 08:30:00');
+    expect(withTime).not.toBeNull();
+    expect(ymd(withTime!)).toBe('2026-1-1');
+    expect(withTime!.getHours()).toBe(8);
+    expect(withTime!.getMinutes()).toBe(30);
+
+    const dateOnly = parseBillDate('2026-01-01');
+    expect(ymd(dateOnly!)).toBe('2026-1-1');
+    expect(dateOnly!.getHours()).toBe(0);
+
     expect(parseBillDate('2026/01/01')).toBeNull();
   });
 

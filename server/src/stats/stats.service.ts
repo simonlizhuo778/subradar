@@ -148,11 +148,11 @@ export class StatsService {
    * 月度扣款序列(过去 6 个月 + 未来 6 个月):
    * 把所有生效/试用订阅按周期展开,展示"如果保持现状,每个月会扣多少"。
    * 过去月份是回顾口径,未来月份是预测口径。
+   * now 可注入,测试不受真实时间影响。
    */
-  async monthly(userId: number, months = 12): Promise<MonthlyPoint[]> {
+  async monthly(userId: number, months = 12, now: Date = new Date()): Promise<MonthlyPoint[]> {
     const total = Math.min(24, Math.max(4, Math.floor(months) || 12));
     const pastCount = Math.floor(total / 2);
-    const now = new Date();
     const start = new Date(now.getFullYear(), now.getMonth() - (pastCount - 1), 1);
     const end = new Date(now.getFullYear(), now.getMonth() + (total - pastCount) + 1, 1);
 

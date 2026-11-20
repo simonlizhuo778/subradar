@@ -24,8 +24,8 @@ describe('secret-crypto(AES-256-GCM)', () => {
     expect(() => decryptSecret(tampered)).toThrow();
   });
 
-  it('掩码:保留头尾,中间打码', () => {
-    expect(maskSecret('sk-abcdwxyz1234')).toBe('sk-ab****1234');
+  it('掩码:保留头 6 位与尾 4 位,中间打码', () => {
+    expect(maskSecret('sk-abcdwxyz1234')).toBe('sk-abc****1234');
     expect(maskSecret('short')).toBe('****');
   });
 

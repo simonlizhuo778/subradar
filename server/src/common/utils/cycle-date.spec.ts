@@ -66,13 +66,12 @@ describe('computeNextPaymentDate(滚到下一个未来扣款日)', () => {
   });
 
   it('月末钳制链不产生非法日期', () => {
-    const first = d(2025, 1, 31); // 1-31 起步,连续滚 2 年
+    const first = d(2025, 1, 31); // 1-31 起步,连续滚到 2026-11-20 之后
     const next = computeNextPaymentDate(first, 'monthly', null, d(2026, 11, 20));
-    // 结果必须是 2026-12 的某一天,且 ≤ 31
+    // 首月钳制到 28 号后链式保持,滚到 2026-11-28(11 月的月份索引是 10)
     expect(next.getFullYear()).toBe(2026);
-    expect(next.getMonth()).toBe(11);
-    expect(next.getDate()).toBeLessThanOrEqual(31);
-    expect(next.getDate()).toBe(28); // 从 31 号链式钳制后会收敛到 28
+    expect(next.getMonth()).toBe(10);
+    expect(next.getDate()).toBe(28);
   });
 
   it('恰好今天到期:应滚到下一周期', () => {
