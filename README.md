@@ -27,7 +27,7 @@ Web 先行 · AI 快速录入(自带 API Key)· 支付宝/微信账单导入 · 
 | 周期 | 内容 | 状态 |
 |---|---|---|
 | W1 | 脚手架 + JWT 认证 + 数据模型(9 表)+ 演示数据 + CI | ✅ |
-| W2 | 订阅 CRUD + 日历视图 + 统计概览 | ⬜ |
+| W2 | 订阅 CRUD + 日历视图 + 统计概览 | ✅ |
 | W3 | AI 快速录入:BYOK 设置、截图/照片识别、待确认队列 | ⬜ |
 | W4 | 语音输入 + 可视化图表(ECharts) | ⬜ |
 | W5 | 支付宝/微信账单导入 + 周期扣款识别 + 到期提醒 | ⬜ |
@@ -65,13 +65,20 @@ subradar/
 │   └── src/
 │       ├── auth/            # 注册/登录/JWT(注册自动建 9 个默认分类)
 │       ├── users/           # GET /api/me
-│       ├── common/utils/cycle-date.ts   # 周期日期推算(月末钳制)
+│       ├── subscriptions/   # 订阅 CRUD + 日历展开 + 筛选排序
+│       ├── categories/      # 分类列表
+│       ├── stats/           # 统计概览 / 分类统计(年度成本折算)
+│       ├── common/utils/cycle-date.ts  # 周期日期推算(月末钳制/日历展开)
+│       ├── common/utils/cost.ts        # 年度成本折算口径
 │       └── common/filters/  # 统一错误结构 { code, message, details }
 └── web/                     # React 19 + Vite + Tailwind v4
     └── src/
         ├── lib/api.ts       # fetch 封装(自动带 JWT)
         ├── lib/auth.tsx     # 认证上下文
-        └── pages/           # 登录 / 注册 / 概览
+        ├── lib/types.ts     # 前后端共享类型
+        ├── lib/format.ts    # 金额/周期/日期格式化
+        ├── components/SubscriptionForm.tsx  # 新建/编辑订阅弹窗
+        └── pages/           # 登录 / 注册 / 概览 / 订阅管理 / 日历
 ```
 
 ## 技术栈

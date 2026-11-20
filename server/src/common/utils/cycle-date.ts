@@ -94,3 +94,34 @@ export function computeNextPaymentDate(
   }
   return next;
 }
+
+/**
+ * 计算订阅在 [start, end) 区间内的所有扣款日 —— 日历视图的核心:
+ * 月付订阅每个月都出现,年付只在周年月出现,周付一个月 4~5 次。
+ * 先把游标滚到区间起点,再逐周期收集。
+ */
+export function occurrencesInRange(
+  firstPaymentDate: Date,
+  cycle: Cycle,
+  customDays: number | null | undefined,
+  start: Date,
+  end: Date,
+): Date[] {
+  const result: Date[] = [];
+  let cursor = new Date(firstPaymentDate);
+  let guard = 0;
+
+  // 滚过区间之前的周期
+  while (cursor.getTime() < start.getTime() && guard < 10_000) {
+    cursor = addCycle(cursor, cycle, customDays);
+    guard += 1;
+  }
+  // 收集区间内的周期
+  guard = 0;
+  while (cursor.getTime() < end.getTime() && guard < 10_000) {
+    result.push(new Date(cursor));
+    cursor = addCycle(cursor, cycle, customDays);
+    guard += 1;
+  }
+  return result;
+}

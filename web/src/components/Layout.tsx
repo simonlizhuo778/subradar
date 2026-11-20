@@ -1,12 +1,20 @@
-import { Outlet, useNavigate } from 'react-router-dom';
+import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/lib/auth';
 
-const NAV = [
-  { label: '概览', ready: true },
-  { label: '订阅', ready: false, eta: 'W2' },
-  { label: '日历', ready: false, eta: 'W2' },
-  { label: '统计', ready: false, eta: 'W4' },
-  { label: 'AI 录入', ready: false, eta: 'W3' },
+interface NavItem {
+  label: string;
+  to: string;
+  end?: boolean;
+  /** 有值表示尚未上线的功能 */
+  eta?: string;
+}
+
+const NAV: NavItem[] = [
+  { label: '概览', to: '/', end: true },
+  { label: '订阅', to: '/subscriptions' },
+  { label: '日历', to: '/calendar' },
+  { label: '统计图表', to: '/stats', eta: 'W4' },
+  { label: 'AI 录入', to: '/ai', eta: 'W3' },
 ];
 
 export function Layout() {
@@ -25,19 +33,34 @@ export function Layout() {
             </span>
           </div>
 
-          <nav className="hidden gap-1 md:flex">
-            {NAV.map((item) => (
-              <span
-                key={item.label}
-                className={`rounded-md px-3 py-1.5 text-sm ${
-                  item.ready ? 'bg-slate-900 font-medium text-white' : 'cursor-not-allowed text-slate-400'
-                }`}
-                title={item.ready ? undefined : `${item.eta} 上线`}
-              >
-                {item.label}
-                {!item.ready && <sup className="ml-1 text-[10px]">{item.eta}</sup>}
-              </span>
-            ))}
+          <nav className="hidden items-center gap-1 md:flex">
+            {NAV.map((item) =>
+              item.eta ? (
+                <span
+                  key={item.label}
+                  className="cursor-not-allowed rounded-md px-3 py-1.5 text-sm text-slate-400"
+                  title={`${item.eta} 上线`}
+                >
+                  {item.label}
+                  <sup className="ml-1 text-[10px]">{item.eta}</sup>
+                </span>
+              ) : (
+                <NavLink
+                  key={item.label}
+                  to={item.to}
+                  end={item.end}
+                  className={({ isActive }) =>
+                    `rounded-md px-3 py-1.5 text-sm transition ${
+                      isActive
+                        ? 'bg-slate-900 font-medium text-white'
+                        : 'text-slate-600 hover:bg-slate-100'
+                    }`
+                  }
+                >
+                  {item.label}
+                </NavLink>
+              ),
+            )}
           </nav>
 
           <div className="flex items-center gap-3">

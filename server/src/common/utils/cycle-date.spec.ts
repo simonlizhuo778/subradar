@@ -5,6 +5,7 @@ import {
   addDays,
   addMonthsClamped,
   computeNextPaymentDate,
+  occurrencesInRange,
 } from './cycle-date';
 
 const d = (y: number, m: number, day: number) => new Date(y, m - 1, day);
@@ -88,5 +89,41 @@ describe('addDays', () => {
 
   it('负数回退', () => {
     expect(addDays(d(2026, 3, 1), -1)).toEqual(d(2026, 2, 28));
+  });
+});
+
+describe('occurrencesInRange(日历展开)', () => {
+  it('月付:每月出现一次', () => {
+    const r = occurrencesInRange(d(2026, 1, 15), 'monthly', null, d(2026, 11, 1), d(2026, 12, 1));
+    expect(r).toEqual([d(2026, 11, 15)]);
+  });
+
+  it('周付:一个月出现 4~5 次', () => {
+    const r = occurrencesInRange(d(2026, 1, 5), 'weekly', null, d(2026, 11, 1), d(2026, 12, 1));
+    expect(r.length).toBeGreaterThanOrEqual(4);
+    expect(r.length).toBeLessThanOrEqual(5);
+  });
+
+  it('年付:只在周年月出现', () => {
+    const hit = occurrencesInRange(d(2024, 11, 20), 'yearly', null, d(2026, 11, 1), d(2026, 12, 1));
+    expect(hit).toEqual([d(2026, 11, 20)]);
+    const miss = occurrencesInRange(d(2024, 6, 15), 'yearly', null, d(2026, 11, 1), d(2026, 12, 1));
+    expect(miss).toEqual([]);
+  });
+
+  it('首次扣款日在区间内:从首次日期开始收集', () => {
+    const r = occurrencesInRange(d(2026, 11, 25), 'monthly', null, d(2026, 11, 1), d(2026, 12, 1));
+    expect(r).toEqual([d(2026, 11, 25)]);
+  });
+
+  it('自定义 90 天周期:整年展开 4 次', () => {
+    const r = occurrencesInRange(d(2026, 3, 30), 'custom', 90, d(2026, 1, 1), d(2027, 1, 1));
+    const keys = r.map((x) => `${x.getFullYear()}-${x.getMonth() + 1}-${x.getDate()}`);
+    expect(keys).toEqual(['2026-3-30', '2026-6-28', '2026-9-26', '2026-12-25']);
+  });
+
+  it('区间完全在首次扣款日之前:空结果', () => {
+    const r = occurrencesInRange(d(2027, 6, 1), 'monthly', null, d(2026, 11, 1), d(2026, 12, 1));
+    expect(r).toEqual([]);
   });
 });
