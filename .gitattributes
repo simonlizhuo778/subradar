@@ -1,0 +1,10 @@
+# 统一行尾:仓库内一律 LF,避免 Windows/Linux/CI 之间 CRLF 抖动
+* text=auto eol=lf
+
+# 二进制文件
+*.db binary
+*.png binary
+*.jpg binary
+*.ico binary
+*.dll.node binary
+*.exe binary
