@@ -2,6 +2,8 @@
 
 # 📡 订阅雷达 SubRadar
 
+[![CI](https://github.com/simonlizhuo778/subradar/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/simonlizhuo778/subradar/actions/workflows/ci.yml)
+
 **从你的真实账单里,把你忘了的订阅自动找出来**
 
 Web 先行 · AI 快速录入(自带 API Key)· 支付宝/微信账单导入 · 周期扣款自动识别
@@ -207,7 +209,7 @@ pnpm db:reset    # 建表 + 重灌演示数据(一键重置)
 ## 待补充
 
 - [ ] 30 秒演示 GIF / 截图(登录 → AI 截图识别 → 确认入库 → 日历/统计)
-- [ ] 推送 GitHub 后补 CI 徽章与在线 Demo 链接
+- [x] CI 徽章已接入(修复 pnpm/action-setup 版本来源冲突)
 
 ## License
 
