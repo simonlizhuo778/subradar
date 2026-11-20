@@ -3,6 +3,7 @@ import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { AiSettingsService } from './ai-settings.service';
+import { ListModelsDto } from './dto/list-models.dto';
 import { SaveAiSettingsDto } from './dto/save-ai-settings.dto';
 
 @ApiTags('ai-settings')
@@ -28,5 +29,13 @@ export class AiSettingsController {
   @ApiOperation({ summary: '连通性测试:发一条极小请求并计时' })
   test(@CurrentUser() user: { id: number }) {
     return this.settings.test(user.id);
+  }
+
+  @Post('models')
+  @ApiOperation({
+    summary: '获取可用模型列表(GET {baseUrl}/models),支持传入未保存的 Base URL 与 Key',
+  })
+  models(@CurrentUser() user: { id: number }, @Body() dto: ListModelsDto) {
+    return this.settings.listModels(user.id, dto);
   }
 }

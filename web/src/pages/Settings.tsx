@@ -1,8 +1,8 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { FormEvent } from 'react';
 import { api, getToken } from '@/lib/api';
 import { AI_PROVIDERS } from '@/lib/ai-providers';
-import type { AiSettingsInfo, TestResult, UsageSummary } from '@/lib/types';
+import type { AiSettingsInfo, ModelsResult, TestResult, UsageSummary } from '@/lib/types';
 
 const inputClass =
   'w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none transition focus:border-slate-900';
@@ -44,6 +44,185 @@ function UsagePanel({ usage }: { usage: UsageSummary | null }) {
   );
 }
 
+interface ModelPickerProps {
+  open: boolean;
+  models: string[];
+  hint: string;
+  loading: boolean;
+  error: string | null;
+  currentModel: string;
+  currentVision: string;
+  onClose: () => void;
+  onPickText: (model: string) => void;
+  onPickVision: (model: string) => void;
+  onRetry: () => void;
+}
+
+/** 可用模型选择器:勾选 = 圈出候选;「设为文本/视觉」= 直接回填到对应字段 */
+function ModelPicker({
+  open,
+  models,
+  hint,
+  loading,
+  error,
+  currentModel,
+  currentVision,
+  onClose,
+  onPickText,
+  onPickVision,
+  onRetry,
+}: ModelPickerProps) {
+  const [checked, setChecked] = useState<string[]>([]);
+  const [keyword, setKeyword] = useState('');
+
+  useEffect(() => {
+    if (open) {
+      setChecked([]);
+      setKeyword('');
+    }
+  }, [open]);
+
+  const visible = useMemo(
+    () => models.filter((m) => m.toLowerCase().includes(keyword.trim().toLowerCase())),
+    [models, keyword],
+  );
+  const allChecked = visible.length > 0 && visible.every((m) => checked.includes(m));
+
+  function toggle(model: string) {
+    setChecked((prev) =>
+      prev.includes(model) ? prev.filter((m) => m !== model) : [...prev, model],
+    );
+  }
+
+  function toggleAll() {
+    setChecked(allChecked ? [] : visible);
+  }
+
+  if (!open) return null;
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-slate-900/40 p-4 sm:items-center"
+      onClick={onClose}
+    >
+      <div
+        className="w-full max-w-lg rounded-xl bg-white p-5 shadow-xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-start justify-between">
+          <div>
+            <h3 className="text-lg font-bold text-slate-900">可用模型</h3>
+            <p className="mt-0.5 text-xs text-slate-500">
+              来自该服务商的 <code className="rounded bg-slate-100 px-1">/models</code> 接口
+            </p>
+          </div>
+          <button onClick={onClose} className="text-slate-400 transition hover:text-slate-600">
+            ✕
+          </button>
+        </div>
+
+        {loading && <p className="py-8 text-center text-sm text-slate-400">正在拉取模型列表…</p>}
+
+        {error && !loading && (
+          <div className="mt-4 space-y-3">
+            <p className="rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-600">{error}</p>
+            <div className="flex gap-2">
+              <button
+                onClick={onRetry}
+                className="rounded-lg border border-slate-200 px-3 py-1.5 text-sm text-slate-600 transition hover:bg-slate-100"
+              >
+                重试
+              </button>
+              <button
+                onClick={onClose}
+                className="rounded-lg border border-slate-200 px-3 py-1.5 text-sm text-slate-600 transition hover:bg-slate-100"
+              >
+                手动填写
+              </button>
+            </div>
+          </div>
+        )}
+
+        {!loading && !error && (
+          <>
+            <div className="mt-3 flex items-center gap-2">
+              <input
+                className="flex-1 rounded-lg border border-slate-300 px-3 py-1.5 text-sm outline-none transition focus:border-slate-900"
+                placeholder="搜索模型名…"
+                value={keyword}
+                onChange={(e) => setKeyword(e.target.value)}
+              />
+              <span className="text-xs text-slate-400">{visible.length} 个</span>
+            </div>
+
+            {hint && <p className="mt-2 text-xs text-slate-400">{hint}</p>}
+
+            <label className="mt-3 flex cursor-pointer items-center gap-2 border-b border-slate-100 pb-2 text-sm text-slate-600">
+              <input
+                type="checkbox"
+                className="h-4 w-4 accent-slate-900"
+                checked={allChecked}
+                onChange={toggleAll}
+              />
+              全选(当前筛选下 {visible.length} 个)
+              {checked.length > 0 && (
+                <span className="ml-auto text-xs text-slate-400">已勾选 {checked.length} 个</span>
+              )}
+            </label>
+
+            <ul className="mt-1 max-h-72 divide-y divide-slate-50 overflow-y-auto">
+              {visible.map((m) => {
+                const isText = m === currentModel;
+                const isVision = m === currentVision;
+                return (
+                  <li key={m} className="flex items-center gap-2 py-2">
+                    <input
+                      type="checkbox"
+                      className="h-4 w-4 shrink-0 accent-slate-900"
+                      checked={checked.includes(m)}
+                      onChange={() => toggle(m)}
+                    />
+                    <span className="min-w-0 flex-1 truncate font-mono text-sm text-slate-700" title={m}>
+                      {m}
+                    </span>
+                    <button
+                      onClick={() => onPickText(m)}
+                      className={`shrink-0 rounded px-2 py-0.5 text-xs transition ${
+                        isText
+                          ? 'bg-slate-900 font-medium text-white'
+                          : 'border border-slate-200 text-slate-500 hover:bg-slate-100'
+                      }`}
+                    >
+                      {isText ? '文本 ✓' : '设为文本'}
+                    </button>
+                    <button
+                      onClick={() => onPickVision(m)}
+                      className={`shrink-0 rounded px-2 py-0.5 text-xs transition ${
+                        isVision
+                          ? 'bg-emerald-600 font-medium text-white'
+                          : 'border border-slate-200 text-slate-500 hover:bg-slate-100'
+                      }`}
+                    >
+                      {isVision ? '视觉 ✓' : '设为视觉'}
+                    </button>
+                  </li>
+                );
+              })}
+              {visible.length === 0 && (
+                <li className="py-6 text-center text-sm text-slate-400">没有匹配的模型名</li>
+              )}
+            </ul>
+
+            <p className="mt-3 border-t border-slate-100 pt-3 text-xs text-slate-400">
+              点「设为文本 / 设为视觉」会自动填回表单;确认后再点「保存配置」才会生效。
+            </p>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export function Settings() {
   const [info, setInfo] = useState<AiSettingsInfo | null>(null);
   const [usage, setUsage] = useState<UsageSummary | null>(null);
@@ -58,6 +237,12 @@ export function Settings() {
   const [saving, setSaving] = useState(false);
   const [testing, setTesting] = useState(false);
   const [testResult, setTestResult] = useState<TestResult | null>(null);
+  // 可用模型列表(GET {baseUrl}/models)
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [models, setModels] = useState<string[]>([]);
+  const [modelsHint, setModelsHint] = useState('');
+  const [modelsLoading, setModelsLoading] = useState(false);
+  const [modelsError, setModelsError] = useState<string | null>(null);
 
   async function refresh() {
     try {
@@ -149,6 +334,30 @@ export function Settings() {
     }
   }
 
+  /** 拉取可用模型列表:优先用页面上当前填的 Base URL / Key,没填则后端回退到已保存配置 */
+  async function fetchModels() {
+    setPickerOpen(true);
+    setModelsLoading(true);
+    setModelsError(null);
+    setModels([]);
+    setModelsHint('');
+    try {
+      const res = await api<ModelsResult>('/settings/ai/models', {
+        method: 'POST',
+        body: {
+          baseUrl: baseUrl.trim() || undefined,
+          apiKey: apiKey.trim() || undefined,
+        },
+      });
+      setModels(res.models);
+      setModelsHint(res.hint);
+    } catch (e) {
+      setModelsError(e instanceof Error ? e.message : '获取模型列表失败');
+    } finally {
+      setModelsLoading(false);
+    }
+  }
+
   const currentPreset = AI_PROVIDERS.find((p) => p.key === provider);
 
   return (
@@ -228,6 +437,15 @@ export function Settings() {
           </div>
         </div>
 
+        <button
+          type="button"
+          onClick={() => void fetchModels()}
+          disabled={modelsLoading}
+          className="flex w-full items-center justify-center gap-2 rounded-lg border border-dashed border-slate-300 bg-slate-50 py-2 text-sm text-slate-600 transition hover:border-slate-400 hover:bg-slate-100 disabled:opacity-50"
+        >
+          {modelsLoading ? '正在获取…' : '🔍 获取可用模型(不用再猜模型名)'}
+        </button>
+
         <div className="max-w-40">
           <label className={labelClass}>每日调用上限(防刷)</label>
           <input
@@ -280,6 +498,26 @@ export function Settings() {
         <h2 className="font-semibold text-slate-900">近 7 天用量</h2>
         <UsagePanel usage={usage} />
       </div>
+
+      <ModelPicker
+        open={pickerOpen}
+        models={models}
+        hint={modelsHint}
+        loading={modelsLoading}
+        error={modelsError}
+        currentModel={model}
+        currentVision={visionModel}
+        onClose={() => setPickerOpen(false)}
+        onPickText={(m) => {
+          setModel(m);
+          setMessage(`已把 ${m} 填入「文本模型」,记得点保存配置`);
+        }}
+        onPickVision={(m) => {
+          setVisionModel(m);
+          setMessage(`已把 ${m} 填入「视觉模型」,记得点保存配置`);
+        }}
+        onRetry={() => void fetchModels()}
+      />
     </div>
   );
 }

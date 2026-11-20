@@ -5,6 +5,7 @@ import { decryptSecret, encryptSecret, maskSecret } from '../common/utils/secret
 import { addDays } from '../common/utils/cycle-date';
 import { chatCompletion, PROVIDER_PRESETS } from './providers';
 import type { ResolvedAiSettings } from './providers';
+import { ListModelsDto } from './dto/list-models.dto';
 import { SaveAiSettingsDto } from './dto/save-ai-settings.dto';
 
 @Injectable()
@@ -129,6 +130,87 @@ export class AiSettingsService {
     }
   }
 
+  /**
+   * 拉取该 Base URL 下的可用模型列表(GET {baseUrl}/models,OpenAI 兼容协议)。
+   * 支持两种用法:
+   *  1) 传 baseUrl/apiKey:还没保存就先试(新手填配置时最常用);
+   *  2) 都不传:用已保存的配置。
+   * 返回纯模型 id 数组,前端做勾选后回填到文本/视觉模型字段。
+   */
+  async listModels(userId: number, dto: ListModelsDto = {}) {
+    const row = await this.prisma.aiSetting.findUnique({ where: { userId } });
+
+    let baseUrl = dto.baseUrl?.trim().replace(/\/+$/, '') ?? '';
+    if (!baseUrl) {
+      baseUrl = (row?.baseUrl || PROVIDER_PRESETS[row?.provider ?? '']?.baseUrl || '').replace(
+        /\/+$/,
+        '',
+      );
+    }
+    if (!baseUrl) {
+      throw new BadRequestException('请先填写 Base URL(例如 https://api.deepseek.com)');
+    }
+
+    let apiKey = dto.apiKey?.trim() ?? '';
+    if (!apiKey && row) {
+      try {
+        apiKey = decryptSecret(row.apiKeyCipher);
+      } catch {
+        // 解密失败:提示重新填 Key
+      }
+    }
+    if (!apiKey) {
+      throw new BadRequestException('请先填写 API Key(或先保存一次配置)');
+    }
+
+    const url = `${baseUrl}/models`;
+    let res: Response;
+    try {
+      res = await fetch(url, {
+        headers: { Authorization: `Bearer ${apiKey}` },
+        signal: AbortSignal.timeout(20_000),
+      });
+    } catch (e) {
+      const err = e as Error;
+      if (err.name === 'TimeoutError' || err.name === 'AbortError') {
+        throw new BadRequestException('请求超时(20 秒),请检查 Base URL 或网络');
+      }
+      throw new BadRequestException(`无法连接 ${baseUrl},请检查地址是否正确`);
+    }
+
+    if (!res.ok) {
+      const text = await res.text().catch(() => '');
+      const snippet = text.slice(0, 160);
+      if (res.status === 401) {
+        throw new BadRequestException('API Key 无效或未授权(401)');
+      }
+      if (res.status === 404) {
+        throw new BadRequestException(
+          `该服务没有 /models 接口(404)。可能它不提供模型列表,请手动填写模型名。地址:${url}`,
+        );
+      }
+      throw new BadRequestException(`获取模型列表失败(${res.status}):${snippet}`);
+    }
+
+    const payload = (await res.json().catch(() => null)) as unknown;
+    const models = extractModelIds(payload);
+    if (models.length === 0) {
+      throw new BadRequestException(
+        '接口返回了响应,但没有解析到模型列表。该服务可能不支持 /models,请手动填写模型名',
+      );
+    }
+
+    return {
+      baseUrl,
+      count: models.length,
+      models,
+      hint:
+        models.some((m) => VISION_HINT.test(m))
+          ? '带 vl / vision / 4o 字样的通常是多模态模型,可用于截图识别'
+          : '未发现明显的视觉模型;截图识别可能不可用,可先用手动填写',
+    };
+  }
+
   /** 近 7 天用量看板(成本透明,也是可观测性的一部分) */
   async usage(userId: number) {
     const since = addDays(new Date(), -7);
@@ -211,4 +293,41 @@ export class AiSettingsService {
       throw new NotFoundException('尚未配置 AI,请先到「设置 → AI 接入」填写 API Key');
     }
   }
+}
+
+/** 视觉/多模态模型的常见命名特征(仅用于给出提示,不做强制过滤) */
+const VISION_HINT = /(vl|vision|4o|multimodal|omni)/i;
+
+/**
+ * 从各家的 /models 响应里提取模型 id:
+ *  - OpenAI / DashScope / DeepSeek: { object:"list", data:[{id:"..."}] }
+ *  - 部分中转站: { data: ["id1","id2"] } 或 { models: [...] } 或裸数组
+ */
+export function extractModelIds(payload: unknown): string[] {
+  const candidates: unknown[] = [];
+
+  if (Array.isArray(payload)) {
+    candidates.push(...payload);
+  } else if (payload && typeof payload === 'object') {
+    const obj = payload as Record<string, unknown>;
+    for (const key of ['data', 'models', 'list']) {
+      const value = obj[key];
+      if (Array.isArray(value)) {
+        candidates.push(...value);
+      }
+    }
+  }
+
+  const ids = new Set<string>();
+  for (const item of candidates) {
+    if (typeof item === 'string') {
+      if (item.trim()) ids.add(item.trim());
+    } else if (item && typeof item === 'object') {
+      const id = (item as Record<string, unknown>).id ?? (item as Record<string, unknown>).name;
+      if (typeof id === 'string' && id.trim()) {
+        ids.add(id.trim());
+      }
+    }
+  }
+  return Array.from(ids).sort();
 }

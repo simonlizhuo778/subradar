@@ -99,6 +99,13 @@ export interface TestResult {
   error?: string;
 }
 
+export interface ModelsResult {
+  baseUrl: string;
+  count: number;
+  models: string[];
+  hint: string;
+}
+
 export interface ExtractedCandidate {
   is_subscription: boolean;
   name: string | null;
