@@ -13,8 +13,9 @@ const NAV: NavItem[] = [
   { label: '概览', to: '/', end: true },
   { label: '订阅', to: '/subscriptions' },
   { label: '日历', to: '/calendar' },
+  { label: 'AI 录入', to: '/ai' },
   { label: '统计图表', to: '/stats', eta: 'W4' },
-  { label: 'AI 录入', to: '/ai', eta: 'W3' },
+  { label: '设置', to: '/settings' },
 ];
 
 export function Layout() {

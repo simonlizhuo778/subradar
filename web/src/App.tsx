@@ -1,11 +1,13 @@
 import { Route, Routes } from 'react-router-dom';
 import { Layout } from '@/components/Layout';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
+import { AiInput } from '@/pages/AiInput';
 import { Calendar } from '@/pages/Calendar';
 import { Dashboard } from '@/pages/Dashboard';
 import { Login } from '@/pages/Login';
 import { NotFound } from '@/pages/NotFound';
 import { Register } from '@/pages/Register';
+import { Settings } from '@/pages/Settings';
 import { Subscriptions } from '@/pages/Subscriptions';
 
 export default function App() {
@@ -18,6 +20,8 @@ export default function App() {
           <Route index element={<Dashboard />} />
           <Route path="subscriptions" element={<Subscriptions />} />
           <Route path="calendar" element={<Calendar />} />
+          <Route path="ai" element={<AiInput />} />
+          <Route path="settings" element={<Settings />} />
         </Route>
       </Route>
       <Route path="*" element={<NotFound />} />

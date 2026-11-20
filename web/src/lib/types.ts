@@ -77,3 +77,61 @@ export interface CalendarResponse {
   month: string;
   days: Record<string, CalendarDayItem[]>;
 }
+
+/* ---------- W3:AI 快速录入 ---------- */
+
+export interface AiSettingsInfo {
+  configured: boolean;
+  provider?: string;
+  baseUrl?: string | null;
+  model?: string | null;
+  visionModel?: string | null;
+  dailyLimit?: number;
+  keyHint?: string;
+  updatedAt?: string;
+}
+
+export interface TestResult {
+  ok: boolean;
+  latencyMs?: number;
+  model?: string;
+  reply?: string;
+  error?: string;
+}
+
+export interface ExtractedCandidate {
+  is_subscription: boolean;
+  name: string | null;
+  merchant: string | null;
+  amount: number | null;
+  currency: string;
+  cycle: string | null;
+  cycle_days: number | null;
+  first_payment_date: string | null;
+  next_payment_date: string | null;
+  payment_method: string | null;
+  auto_renew: boolean | null;
+  confidence: number;
+  evidence: string | null;
+}
+
+export interface CandidateRow {
+  id: number;
+  source: string;
+  rawRef: string | null;
+  extracted: ExtractedCandidate;
+  confidence: number;
+  status: 'pending' | 'confirmed' | 'dismissed';
+  subscriptionId: number | null;
+  createdAt: string;
+  decidedAt: string | null;
+}
+
+export interface UsageSummary {
+  total: number;
+  ok: number;
+  failed: number;
+  promptTokens: number;
+  completionTokens: number;
+  byDay: Array<{ date: string; calls: number; ok: number; tokens: number }>;
+}

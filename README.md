@@ -28,7 +28,7 @@ Web 先行 · AI 快速录入(自带 API Key)· 支付宝/微信账单导入 · 
 |---|---|---|
 | W1 | 脚手架 + JWT 认证 + 数据模型(9 表)+ 演示数据 + CI | ✅ |
 | W2 | 订阅 CRUD + 日历视图 + 统计概览 | ✅ |
-| W3 | AI 快速录入:BYOK 设置、截图/照片识别、待确认队列 | ⬜ |
+| W3 | AI 快速录入:BYOK 设置、截图识别、文本抽取、待确认队列 | ✅ |
 | W4 | 语音输入 + 可视化图表(ECharts) | ⬜ |
 | W5 | 支付宝/微信账单导入 + 周期扣款识别 + 到期提醒 | ⬜ |
 | W6 | 部署上线 + README 打磨 + 演示 GIF | ⬜ |
@@ -53,6 +53,15 @@ pnpm dev
 
 **演示账号**:`demo@subradar.app` / `demo1234`(25 个中文订阅 + 100+ 条扣款历史)
 
+## AI 快速录入(自带 Key)
+
+1. 登录后进入 **设置 → AI 接入**,选择 Provider(DeepSeek / 智谱 GLM / OpenAI / Gemini / 自定义 OpenAI 兼容端点),粘贴你购买的 API Key,「测试连通」通过后保存——Key 以 **AES-256-GCM** 加密存储,前端只显示掩码;
+2. 进入 **AI 录入**:粘贴付款截图(Ctrl+V)/ 拖入 / 手机拍照,或直接输入账单短信、口述文本;
+3. 模型抽取的订阅信息进入 **待确认队列**,核对/修改字段后「确认入库」,自动创建订阅并回填历史扣款;
+4. 每日调用限额、近 7 天用量与 token 消耗都在设置页可见。
+
+> 说明:文本抽取只需文本模型(如 deepseek-chat);截图识别需要视觉模型(如 glm-4.5v / gpt-4o-mini),两者可分开配置。
+
 ## 项目结构
 
 ```
@@ -68,8 +77,11 @@ subradar/
 │       ├── subscriptions/   # 订阅 CRUD + 日历展开 + 筛选排序
 │       ├── categories/      # 分类列表
 │       ├── stats/           # 统计概览 / 分类统计(年度成本折算)
+│       ├── ai/              # BYOK 设置 / Provider 适配 / 图片与文本抽取 / 用量
+│       ├── candidates/      # 待确认队列:确认入库 + 回填历史
 │       ├── common/utils/cycle-date.ts  # 周期日期推算(月末钳制/日历展开)
 │       ├── common/utils/cost.ts        # 年度成本折算口径
+│       ├── common/utils/secret-crypto.ts # AES-256-GCM 密钥加密
 │       └── common/filters/  # 统一错误结构 { code, message, details }
 └── web/                     # React 19 + Vite + Tailwind v4
     └── src/
@@ -78,7 +90,8 @@ subradar/
         ├── lib/types.ts     # 前后端共享类型
         ├── lib/format.ts    # 金额/周期/日期格式化
         ├── components/SubscriptionForm.tsx  # 新建/编辑订阅弹窗
-        └── pages/           # 登录 / 注册 / 概览 / 订阅管理 / 日历
+        ├── components/CandidateCard.tsx    # AI 候选确认卡片
+        └── pages/           # 登录 / 注册 / 概览 / 订阅管理 / 日历 / AI 录入 / 设置
 ```
 
 ## 技术栈

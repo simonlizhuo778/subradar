@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { api } from '@/lib/api';
 import { money, relativeDue, yearlyByCurrencyText } from '@/lib/format';
 import type { CategoryStatRow, StatsSummary, UpcomingItem } from '@/lib/types';
@@ -147,7 +148,11 @@ export function Dashboard() {
       </div>
 
       <p className="text-center text-xs text-slate-400">
-        W3 预告:AI 快速录入 —— 截图 / 语音 / 账单文本一键生成订阅(自带 API Key)
+        新功能:
+        <Link to="/ai" className="font-medium text-slate-600 underline hover:text-slate-900">
+          AI 快速录入
+        </Link>
+        —— 付款截图 / 账单短信一键生成订阅(自带 API Key)
       </p>
     </div>
   );
