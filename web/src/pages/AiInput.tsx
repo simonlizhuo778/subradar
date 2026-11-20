@@ -3,6 +3,8 @@ import type { ClipboardEvent, DragEvent } from 'react';
 import { Link } from 'react-router-dom';
 import { api, getToken } from '@/lib/api';
 import { compressImage } from '@/lib/image';
+import { createRecognizer, describeSpeechError, getSpeechRecognition } from '@/lib/speech';
+import type { SpeechRecognitionLike } from '@/lib/speech';
 import { CandidateCard } from '@/components/CandidateCard';
 import type { AiSettingsInfo, CandidateRow, Category } from '@/lib/types';
 
@@ -19,7 +21,12 @@ export function AiInput() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [highlightId, setHighlightId] = useState<number | null>(null);
   const [dragging, setDragging] = useState(false);
+  const [listening, setListening] = useState(false);
+  const [interim, setInterim] = useState('');
   const previewUrlRef = useRef<string | null>(null);
+  const recognizerRef = useRef<SpeechRecognitionLike | null>(null);
+  const finalTextRef = useRef('');
+  const speechSupported = getSpeechRecognition() !== null;
 
   const refreshCandidates = useCallback(async () => {
     try {
@@ -69,7 +76,7 @@ export function AiInput() {
     setPreview(null);
   }
 
-  async function extract() {
+  async function extract(overrideText?: string) {
     setError(null);
     setMessage(null);
     setHighlightId(null);
@@ -99,14 +106,15 @@ export function AiInput() {
         setHighlightId(data?.created?.[0]?.id ?? null);
         clearImage();
       } else {
-        if (!text.trim()) {
+        const input = (overrideText ?? text).trim();
+        if (!input) {
           setError('请输入账单短信 / 口述文本');
           return;
         }
         setExtracting(true);
         const data = await api<{ created: CandidateRow[]; message: string }>('/ai/extract/text', {
           method: 'POST',
-          body: { text: text.trim() },
+          body: { text: input.slice(0, 4000) },
         });
         setMessage(data.message);
         setHighlightId(data.created?.[0]?.id ?? null);
@@ -118,6 +126,60 @@ export function AiInput() {
     } finally {
       setExtracting(false);
     }
+  }
+
+  /* ---------- 语音输入:浏览器本地转写(免费、不耗额度),说完自动接抽取管道 ---------- */
+
+  function startListening() {
+    setError(null);
+    setMessage(null);
+    const recognizer = createRecognizer();
+    if (!recognizer) return;
+    recognizerRef.current = recognizer;
+    finalTextRef.current = '';
+    setInterim('');
+    setListening(true);
+
+    recognizer.onresult = (event) => {
+      let finalChunk = '';
+      let interimChunk = '';
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        const result = event.results[i];
+        const transcript = result[0]?.transcript ?? '';
+        if (result.isFinal) {
+          finalChunk += transcript;
+        } else {
+          interimChunk += transcript;
+        }
+      }
+      if (finalChunk) {
+        finalTextRef.current += finalChunk;
+        setInterim('');
+      } else if (interimChunk) {
+        setInterim(interimChunk);
+      }
+    };
+    recognizer.onerror = (event) => {
+      setError(describeSpeechError(event.error));
+    };
+    recognizer.onend = () => {
+      setListening(false);
+      setInterim('');
+      const spoken = finalTextRef.current.trim();
+      if (spoken) {
+        setText(spoken); // 留在输入框里,抽取失败时可直接编辑重试
+        void extract(spoken);
+      }
+    };
+    try {
+      recognizer.start();
+    } catch {
+      setListening(false);
+    }
+  }
+
+  function stopListening() {
+    recognizerRef.current?.stop();
   }
 
   const notConfigured = info && !info.configured;
@@ -216,19 +278,46 @@ export function AiInput() {
             )}
           </div>
         ) : (
-          <textarea
-            className="min-h-32 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none transition focus:border-slate-900"
-            placeholder={'粘贴账单短信,或直接口述,例如:\n我上个月开了个腾讯视频VIP,30 块一个月,自动续费'}
-            value={text}
-            maxLength={4000}
-            onChange={(e) => setText(e.target.value)}
-          />
+          <div>
+            {listening ? (
+              <div className="mb-3 flex items-center gap-3 rounded-lg bg-rose-50 px-4 py-3">
+                <span className="h-3 w-3 shrink-0 animate-pulse rounded-full bg-rose-500" />
+                <span className="flex-1 truncate text-sm text-rose-700">
+                  {interim || '正在听…说完后点右侧按钮'}
+                </span>
+                <button
+                  onClick={stopListening}
+                  className="shrink-0 rounded-md bg-rose-600 px-3 py-1.5 text-xs font-medium text-white transition hover:bg-rose-500"
+                >
+                  说完了
+                </button>
+              </div>
+            ) : speechSupported ? (
+              <button
+                onClick={startListening}
+                className="mb-3 flex items-center gap-2 rounded-lg border border-slate-200 px-4 py-2 text-sm text-slate-600 transition hover:bg-slate-50"
+              >
+                🎙️ 语音输入(浏览器本地转写,免费不耗额度)
+              </button>
+            ) : (
+              <p className="mb-3 text-xs text-slate-400">
+                当前浏览器不支持语音识别,可直接输入文本
+              </p>
+            )}
+            <textarea
+              className="min-h-32 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none transition focus:border-slate-900"
+              placeholder={'粘贴账单短信,或直接口述,例如:\n我上个月开了个腾讯视频VIP,30 块一个月,自动续费'}
+              value={text}
+              maxLength={4000}
+              onChange={(e) => setText(e.target.value)}
+            />
+          </div>
         )}
 
         <div className="mt-4 flex items-center gap-3">
           <button
             onClick={() => void extract()}
-            disabled={extracting || notConfigured === true}
+            disabled={extracting || listening || notConfigured === true}
             className="rounded-lg bg-slate-900 px-5 py-2 text-sm font-medium text-white transition hover:bg-slate-700 disabled:opacity-50"
           >
             {extracting ? '识别中…(消耗模型额度)' : '开始识别'}

@@ -135,3 +135,22 @@ export interface UsageSummary {
   completionTokens: number;
   byDay: Array<{ date: string; calls: number; ok: number; tokens: number }>;
 }
+
+export interface MonthlyPoint {
+  month: string;
+  count: number;
+  byCurrency: Record<string, number>;
+}
+
+export interface TopSubscriptionRow {
+  id: number;
+  name: string;
+  amount: number;
+  currency: string;
+  cycle: Cycle;
+  customDays: number | null;
+  yearlyCost: number;
+  nextPaymentDate: string;
+  categoryName: string | null;
+  categoryColor: string | null;
+}

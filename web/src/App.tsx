@@ -8,6 +8,7 @@ import { Login } from '@/pages/Login';
 import { NotFound } from '@/pages/NotFound';
 import { Register } from '@/pages/Register';
 import { Settings } from '@/pages/Settings';
+import { Stats } from '@/pages/Stats';
 import { Subscriptions } from '@/pages/Subscriptions';
 
 export default function App() {
@@ -21,6 +22,7 @@ export default function App() {
           <Route path="subscriptions" element={<Subscriptions />} />
           <Route path="calendar" element={<Calendar />} />
           <Route path="ai" element={<AiInput />} />
+          <Route path="stats" element={<Stats />} />
           <Route path="settings" element={<Settings />} />
         </Route>
       </Route>

@@ -29,7 +29,7 @@ Web 先行 · AI 快速录入(自带 API Key)· 支付宝/微信账单导入 · 
 | W1 | 脚手架 + JWT 认证 + 数据模型(9 表)+ 演示数据 + CI | ✅ |
 | W2 | 订阅 CRUD + 日历视图 + 统计概览 | ✅ |
 | W3 | AI 快速录入:BYOK 设置、截图识别、文本抽取、待确认队列 | ✅ |
-| W4 | 语音输入 + 可视化图表(ECharts) | ⬜ |
+| W4 | 语音输入 + 统计图表(ECharts) | ✅ |
 | W5 | 支付宝/微信账单导入 + 周期扣款识别 + 到期提醒 | ⬜ |
 | W6 | 部署上线 + README 打磨 + 演示 GIF | ⬜ |
 
@@ -91,7 +91,9 @@ subradar/
         ├── lib/format.ts    # 金额/周期/日期格式化
         ├── components/SubscriptionForm.tsx  # 新建/编辑订阅弹窗
         ├── components/CandidateCard.tsx    # AI 候选确认卡片
-        └── pages/           # 登录 / 注册 / 概览 / 订阅管理 / 日历 / AI 录入 / 设置
+        ├── components/EChart.tsx           # ECharts 封装(按需引入/自适应/销毁)
+        ├── lib/speech.ts                   # Web Speech API 语音识别封装
+        └── pages/           # 登录 / 注册 / 概览 / 订阅管理 / 日历 / AI 录入 / 统计 / 设置
 ```
 
 ## 技术栈
