@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import type { FormEvent } from 'react';
 import { api, getToken } from '@/lib/api';
 import { AI_PROVIDERS } from '@/lib/ai-providers';
+import { NotificationChannels } from '@/components/NotificationChannels';
 import type { AiSettingsInfo, ModelsResult, TestResult, UsageSummary } from '@/lib/types';
 
 const inputClass =
@@ -493,6 +494,8 @@ export function Settings() {
           </div>
         )}
       </form>
+
+      <NotificationChannels />
 
       <div className="rounded-xl border border-slate-200 bg-white p-6">
         <h2 className="font-semibold text-slate-900">近 7 天用量</h2>

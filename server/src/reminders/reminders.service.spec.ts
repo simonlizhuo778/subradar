@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { PrismaService } from '../prisma/prisma.service';
+import { NotificationsService } from '../notifications/notifications.service';
 import { RemindersService } from './reminders.service';
 
 function makeService() {
@@ -8,8 +9,12 @@ function makeService() {
     payment: { create: vi.fn() },
     reminder: { findFirst: vi.fn(), create: vi.fn(), findMany: vi.fn() },
   };
-  const service = new RemindersService(prisma as unknown as PrismaService);
-  return { service, prisma };
+  const notifications = { dispatch: vi.fn(async () => ({ sent: 0, failed: 0, details: [] })) };
+  const service = new RemindersService(
+    prisma as unknown as PrismaService,
+    notifications as unknown as NotificationsService,
+  );
+  return { service, prisma, notifications };
 }
 
 const ymd = (date: Date) =>
@@ -41,7 +46,7 @@ describe('RemindersService.scanOnce', () => {
         },
       ])
       .mockResolvedValueOnce([]);
-    prisma.reminder.create.mockResolvedValue({});
+    prisma.reminder.create.mockResolvedValue({ id: 901 });
 
     const result = await service.scanOnce();
 
@@ -102,7 +107,7 @@ describe('RemindersService.scanOnce', () => {
       .mockResolvedValueOnce([]) // 无逾期
       .mockResolvedValueOnce([dueSub, dueSubDay3]);
     prisma.reminder.findFirst.mockResolvedValue(null);
-    prisma.reminder.create.mockResolvedValue({});
+    prisma.reminder.create.mockResolvedValue({ id: 902 });
 
     const first = await service.scanOnce();
     expect(first.created).toBe(2);

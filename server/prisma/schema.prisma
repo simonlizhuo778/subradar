@@ -26,6 +26,8 @@ model User {
   candidates       SubscriptionCandidate[]
   aiSetting        AiSetting?
   usageLogs        UsageLog[]
+  channels         NotificationChannel[]
+  notifications    NotificationLog[]
 }
 
 model Category {
@@ -185,4 +187,53 @@ model Reminder {
   /// pending | sent | failed
   status         String       @default("pending")
   sentAt         DateTime?
+}
+
+/// 用户的推送渠道:飞书群机器人 / 通用 webhook / 邮件
+model NotificationChannel {
+  id     Int    @id @default(autoincrement())
+  userId Int
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /// feishu | webhook | email
+  type   String
+  label  String
+  /// 目标(URL / 邮箱地址)的 AES-256-GCM 密文
+  targetCipher String
+  /// 展示用的掩码提示,不泄露完整目标
+  targetHint   String
+  /// 飞书机器人「签名校验」的可选密钥(加密存储)
+  secretCipher String?
+
+  /// 邮件渠道的 SMTP 配置(密码单独加密)
+  smtpHost       String?
+  smtpPort       Int?
+  smtpSecure     Boolean? @default(true)
+  smtpUser       String?
+  smtpPassCipher String?
+  smtpFrom       String?
+
+  enabled    Boolean   @default(true)
+  /// ok | failed
+  lastStatus String?
+  lastError  String?
+  lastSentAt DateTime?
+  createdAt  DateTime  @default(now())
+
+  logs NotificationLog[]
+}
+
+/// 每一次推送的发送记录(成功/失败/原因)
+model NotificationLog {
+  id         Int                 @id @default(autoincrement())
+  userId     Int
+  user       User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  channelId  Int?
+  channel    NotificationChannel? @relation(fields: [channelId], references: [id], onDelete: SetNull)
+  reminderId Int?
+  title      String
+  ok         Boolean             @default(false)
+  error      String?
+  createdAt  DateTime            @default(now())
+
+  @@index([userId, createdAt])
 }

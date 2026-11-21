@@ -1,5 +1,7 @@
 import { Injectable, Logger, OnApplicationShutdown, OnModuleInit } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { NotificationsService } from '../notifications/notifications.service';
+import type { DispatchItem } from '../notifications/notifications.service';
 import { addCycle, addDays, computeNextPaymentDate } from '../common/utils/cycle-date';
 import type { Cycle } from '../common/utils/cycle-date';
 
@@ -12,7 +14,8 @@ const SCAN_INTERVAL_MS = 6 * 60 * 60 * 1000;
 /**
  * 到期提醒:
  * 1) 追平逾期订阅(自动续费的补记扣款);
- * 2) 为「3 天内将扣款」的订阅生成提醒(站内/浏览器通知),同一周期绝不重复。
+ * 2) 为「3 天内将扣款」的订阅生成提醒(站内),并主动推送到用户配置的渠道
+ *    (飞书群机器人 / 通用 webhook / 邮件),同一周期绝不重复。
  *
  * 说明:这里用 setInterval 而非 @nestjs/schedule,避免额外依赖;
  * 换成 @Cron 装饰器时只需把 scanOnce 挂上去,逻辑不用动。
@@ -22,7 +25,10 @@ export class RemindersService implements OnModuleInit, OnApplicationShutdown {
   private readonly logger = new Logger(RemindersService.name);
   private timer: ReturnType<typeof setInterval> | null = null;
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly notifications: NotificationsService,
+  ) {}
 
   onModuleInit() {
     void this.scanOnce().catch((e) => this.logger.warn(`启动扫描失败:${String(e)}`));
@@ -40,11 +46,18 @@ export class RemindersService implements OnModuleInit, OnApplicationShutdown {
     }
   }
 
-  async scanOnce(): Promise<{ rolled: number; created: number }> {
+  async scanOnce(): Promise<{
+    rolled: number;
+    created: number;
+    pushed: number;
+    pushFailed: number;
+  }> {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     let rolled = 0;
     let created = 0;
+    /** userId → 该用户本次新生成的提醒,用于批量推送 */
+    const toDispatch = new Map<number, DispatchItem[]>();
 
     // ---- 1. 追平逾期:nextPaymentDate 已过期的生效订阅 ----
     const overdue = await this.prisma.subscription.findMany({
@@ -93,6 +106,7 @@ export class RemindersService implements OnModuleInit, OnApplicationShutdown {
         status: { in: ['active', 'trial'] },
         nextPaymentDate: { gte: today, lt: addDays(today, REMIND_DAYS_BEFORE + 1) },
       },
+      include: { category: { select: { name: true } } },
     });
     for (const sub of due) {
       const remindDate = addDays(sub.nextPaymentDate, -REMIND_DAYS_BEFORE);
@@ -101,7 +115,7 @@ export class RemindersService implements OnModuleInit, OnApplicationShutdown {
         where: { subscriptionId: sub.id, remindDate },
       });
       if (exists) continue;
-      await this.prisma.reminder.create({
+      const reminder = await this.prisma.reminder.create({
         data: {
           subscriptionId: sub.id,
           remindDate,
@@ -112,9 +126,35 @@ export class RemindersService implements OnModuleInit, OnApplicationShutdown {
         },
       });
       created += 1;
+
+      // 收集待推送项(按用户分组,稍后一次性分发)
+      const list = toDispatch.get(sub.userId) ?? [];
+      list.push({
+        reminderId: reminder.id,
+        subscriptionName: sub.name,
+        amount: sub.amount,
+        currency: sub.currency,
+        nextPaymentDate: sub.nextPaymentDate,
+        autoRenew: sub.autoRenew,
+        categoryName: sub.category?.name ?? null,
+      });
+      toDispatch.set(sub.userId, list);
     }
 
-    return { rolled, created };
+    // 主动推送:把新提醒发到用户配置的飞书 / webhook / 邮件
+    let pushed = 0;
+    let pushFailed = 0;
+    for (const [userId, items] of toDispatch) {
+      try {
+        const result = await this.notifications.dispatch(userId, items);
+        pushed += result.sent;
+        pushFailed += result.failed;
+      } catch (e) {
+        this.logger.warn(`推送分发失败(user ${userId}):${String(e)}`);
+      }
+    }
+
+    return { rolled, created, pushed, pushFailed };
   }
 
   /** 通知列表:最近 30 天的提醒(按提醒日倒序) */

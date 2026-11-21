@@ -106,6 +106,34 @@ export interface ModelsResult {
   hint: string;
 }
 
+/* ---------- 主动推送渠道 ---------- */
+
+export type ChannelType = 'feishu' | 'webhook' | 'email';
+
+export interface NotificationChannelInfo {
+  id: number;
+  type: ChannelType;
+  label: string;
+  targetHint: string;
+  enabled: boolean;
+  lastStatus: 'ok' | 'failed' | null;
+  lastError: string | null;
+  lastSentAt: string | null;
+  createdAt: string;
+  hasSmtp: boolean;
+  smtpHost: string | null;
+  smtpUser: string | null;
+}
+
+export interface NotificationLogRow {
+  id: number;
+  title: string;
+  ok: boolean;
+  error: string | null;
+  channelId: number | null;
+  createdAt: string;
+}
+
 export interface ExtractedCandidate {
   is_subscription: boolean;
   name: string | null;
