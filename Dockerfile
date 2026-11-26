@@ -37,5 +37,6 @@ COPY --from=build /app/web/dist ./web/dist
 EXPOSE 8080
 
 # 启动前建表(db push 幂等);可选灌入演示数据(SEED_DEMO=true)
+# 用 .seeded 标记保证演示数据只灌一次,避免每次重启清空真实数据
 # SQLite 文件位于 /app/server/prisma/data,部署平台把持久卷挂到这个目录
-CMD ["sh", "-c", "cd /app/server && mkdir -p prisma/data && node /app/node_modules/prisma/build/index.js db push --schema prisma/schema.prisma --skip-generate && if [ \"$SEED_DEMO\" = \"true\" ]; then node /app/node_modules/tsx/dist/cli.mjs prisma/seed.ts; fi && node dist/main.js"]
+CMD ["sh", "-c", "cd /app/server && mkdir -p prisma/data && node /app/node_modules/prisma/build/index.js db push --schema prisma/schema.prisma --skip-generate && if [ \"$SEED_DEMO\" = \"true\" ] && [ ! -f prisma/data/.seeded ]; then node /app/node_modules/tsx/dist/cli.mjs prisma/seed.ts && touch prisma/data/.seeded; fi && node dist/main.js"]
