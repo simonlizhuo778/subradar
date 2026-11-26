@@ -1,7 +1,20 @@
 import { useState } from 'react';
 import type { FormEvent } from 'react';
+import { Check, ChevronDown, X } from 'lucide-react';
 import { api } from '@/lib/api';
 import { formatDate, parseDateOnly } from '@/lib/format';
+import {
+  Alert,
+  Badge,
+  Button,
+  Card,
+  Checkbox,
+  Field,
+  Input,
+  Select,
+  cx,
+} from '@/components/ui';
+import { useToast } from '@/components/ui/Toast';
 import type { CandidateRow, Category, Cycle, ExtractedCandidate } from '@/lib/types';
 
 interface Props {
@@ -28,10 +41,6 @@ const PAYMENT_METHODS = [
   { value: 'card', label: '银行卡' },
   { value: 'other', label: '其他' },
 ];
-
-const inputClass =
-  'w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none transition focus:border-slate-900';
-const labelClass = 'mb-1 block text-xs font-medium text-slate-600';
 
 function confidenceClass(confidence: number): string {
   if (confidence >= 0.7) return 'bg-emerald-500';
@@ -62,6 +71,7 @@ function initForm(extracted: ExtractedCandidate) {
 }
 
 export function CandidateCard({ candidate, categories, defaultOpen, onDone, onMessage }: Props) {
+  const toast = useToast();
   const [open, setOpen] = useState(defaultOpen ?? false);
   const [form, setForm] = useState(() => initForm(candidate.extracted));
   const [error, setError] = useState<string | null>(null);
@@ -94,6 +104,7 @@ export function CandidateCard({ candidate, categories, defaultOpen, onDone, onMe
           notes: form.notes.trim() || undefined,
         },
       });
+      toast.success(`「${form.name.trim()}」已入库,扣款历史已回填`);
       onMessage(`✓ 「${form.name.trim()}」已入库,扣款历史已回填`);
       onDone();
     } catch (err) {
@@ -107,6 +118,7 @@ export function CandidateCard({ candidate, categories, defaultOpen, onDone, onMe
     setBusy(true);
     try {
       await api(`/candidates/${candidate.id}/dismiss`, { method: 'POST' });
+      toast.info('已忽略该候选订阅');
       onDone();
     } catch (err) {
       setError(err instanceof Error ? err.message : '操作失败');
@@ -118,14 +130,13 @@ export function CandidateCard({ candidate, categories, defaultOpen, onDone, onMe
   const today = formatDate(new Date());
 
   return (
-    <div className="rounded-xl border border-slate-200 bg-white">
+    <Card className="overflow-hidden">
       <button
+        type="button"
         onClick={() => setOpen((v) => !v)}
-        className="flex w-full flex-wrap items-center gap-3 px-4 py-3 text-left transition hover:bg-slate-50"
+        className="flex w-full flex-wrap items-center gap-3 px-4 py-3.5 text-left transition-colors duration-150 hover:bg-slate-50"
       >
-        <span className="rounded bg-slate-100 px-2 py-0.5 text-xs text-slate-500">
-          {sourceLabel(candidate.source)}
-        </span>
+        <Badge tone="neutral">{sourceLabel(candidate.source)}</Badge>
         <span className="font-medium text-slate-900">
           {candidate.extracted.name ?? '(未识别出名称)'}
         </span>
@@ -140,41 +151,40 @@ export function CandidateCard({ candidate, categories, defaultOpen, onDone, onMe
           </span>
           <div className="h-1.5 w-16 overflow-hidden rounded-full bg-slate-100">
             <div
-              className={`h-full ${confidenceClass(candidate.confidence)}`}
+              className={cx('h-full rounded-full transition-all duration-300', confidenceClass(candidate.confidence))}
               style={{ width: `${Math.max(6, candidate.confidence * 100)}%` }}
             />
           </div>
-          <span className="text-xs text-slate-300">{open ? '收起 ▲' : '展开 ▼'}</span>
+          <ChevronDown
+            className={cx('h-4 w-4 text-slate-400 transition-transform duration-200', open && 'rotate-180')}
+            aria-hidden
+          />
         </div>
       </button>
 
       {candidate.extracted.evidence && !open && (
-        <p className="px-4 pb-3 text-xs text-slate-400">依据:{candidate.extracted.evidence}</p>
+        <p className="px-4 pb-3 text-xs leading-5 text-slate-400">依据:{candidate.extracted.evidence}</p>
       )}
 
       {open && (
-        <form onSubmit={confirm} className="space-y-3 border-t border-slate-100 p-4">
+        <form onSubmit={confirm} className="animate-fade-in space-y-3 border-t border-slate-900/6 p-4">
           {candidate.extracted.evidence && (
-            <p className="rounded-lg bg-slate-50 px-3 py-2 text-xs text-slate-500">
+            <p className="rounded-lg bg-slate-50 px-3 py-2 text-xs leading-5 text-slate-500">
               模型依据:{candidate.extracted.evidence}
               {candidate.extracted.merchant && ` · 商户:${candidate.extracted.merchant}`}
             </p>
           )}
 
-          <div className="grid grid-cols-2 gap-3">
-            <div className="col-span-2">
-              <label className={labelClass}>名称 *</label>
-              <input
-                className={inputClass}
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <Field label="名称 *" className="sm:col-span-2">
+              <Input
                 value={form.name}
                 maxLength={60}
                 onChange={(e) => setForm({ ...form, name: e.target.value })}
               />
-            </div>
-            <div>
-              <label className={labelClass}>分类</label>
-              <select
-                className={inputClass}
+            </Field>
+            <Field label="分类">
+              <Select
                 value={form.categoryId}
                 onChange={(e) => setForm({ ...form, categoryId: e.target.value })}
               >
@@ -184,12 +194,10 @@ export function CandidateCard({ candidate, categories, defaultOpen, onDone, onMe
                     {c.name}
                   </option>
                 ))}
-              </select>
-            </div>
-            <div>
-              <label className={labelClass}>支付方式</label>
-              <select
-                className={inputClass}
+              </Select>
+            </Field>
+            <Field label="支付方式">
+              <Select
                 value={form.paymentMethod}
                 onChange={(e) => setForm({ ...form, paymentMethod: e.target.value })}
               >
@@ -198,24 +206,20 @@ export function CandidateCard({ candidate, categories, defaultOpen, onDone, onMe
                     {m.label}
                   </option>
                 ))}
-              </select>
-            </div>
+              </Select>
+            </Field>
             <div className="grid grid-cols-[1fr_90px] gap-3">
-              <div>
-                <label className={labelClass}>金额 *</label>
-                <input
-                  className={inputClass}
+              <Field label="金额 *">
+                <Input
                   type="number"
                   min="0"
                   step="0.01"
                   value={form.amount}
                   onChange={(e) => setForm({ ...form, amount: e.target.value })}
                 />
-              </div>
-              <div>
-                <label className={labelClass}>币种</label>
-                <select
-                  className={inputClass}
+              </Field>
+              <Field label="币种">
+                <Select
                   value={form.currency}
                   onChange={(e) => setForm({ ...form, currency: e.target.value })}
                 >
@@ -224,13 +228,11 @@ export function CandidateCard({ candidate, categories, defaultOpen, onDone, onMe
                       {c}
                     </option>
                   ))}
-                </select>
-              </div>
+                </Select>
+              </Field>
             </div>
-            <div>
-              <label className={labelClass}>周期</label>
-              <select
-                className={inputClass}
+            <Field label="周期">
+              <Select
                 value={form.cycle}
                 onChange={(e) => setForm({ ...form, cycle: e.target.value as Cycle })}
               >
@@ -239,73 +241,58 @@ export function CandidateCard({ candidate, categories, defaultOpen, onDone, onMe
                     {o.label}
                   </option>
                 ))}
-              </select>
-            </div>
+              </Select>
+            </Field>
             {form.cycle === 'custom' && (
-              <div>
-                <label className={labelClass}>周期天数</label>
-                <input
-                  className={inputClass}
+              <Field label="周期天数">
+                <Input
                   type="number"
                   min="1"
                   max="365"
                   value={form.customDays}
                   onChange={(e) => setForm({ ...form, customDays: e.target.value })}
                 />
-              </div>
+              </Field>
             )}
-            <div>
-              <label className={labelClass}>首次扣款日 *</label>
+            <Field label="首次扣款日 *">
               <div className="flex gap-2">
-                <input
-                  className={inputClass}
+                <Input
                   type="date"
                   value={form.firstPaymentDate}
                   onChange={(e) => setForm({ ...form, firstPaymentDate: e.target.value })}
                 />
-                <button
-                  type="button"
-                  className="shrink-0 rounded-lg border border-slate-200 px-2 text-xs text-slate-500 transition hover:bg-slate-100"
+                <Button
+                  variant="secondary"
+                  className="shrink-0"
                   onClick={() => setForm({ ...form, firstPaymentDate: today })}
                 >
                   今天
-                </button>
+                </Button>
               </div>
-            </div>
-            <label className="col-span-2 flex items-center gap-2 text-sm text-slate-600">
-              <input
-                type="checkbox"
+            </Field>
+            <label className="flex cursor-pointer items-center gap-2 text-sm text-slate-600 sm:col-span-2">
+              <Checkbox
                 checked={form.autoRenew}
                 onChange={(e) => setForm({ ...form, autoRenew: e.target.checked })}
-                className="h-4 w-4 accent-slate-900"
               />
               开通了自动续费
             </label>
           </div>
 
-          {error && (
-            <div className="rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-600">{error}</div>
-          )}
+          {error && <Alert tone="error">{error}</Alert>}
 
           <div className="flex justify-end gap-2">
-            <button
-              type="button"
-              disabled={busy}
-              onClick={() => void dismiss()}
-              className="rounded-lg border border-slate-200 px-4 py-2 text-sm text-slate-500 transition hover:bg-slate-100 disabled:opacity-50"
-            >
+            <Button variant="ghost" disabled={busy} onClick={() => void dismiss()}>
+              <X className="h-4 w-4" aria-hidden />
               忽略
-            </button>
-            <button
-              type="submit"
-              disabled={busy}
-              className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-slate-700 disabled:opacity-50"
-            >
+            </Button>
+            <Button type="submit" loading={busy}>
+              {!busy && <Check className="h-4 w-4" aria-hidden />}
               {busy ? '处理中…' : '确认入库'}
-            </button>
+            </Button>
           </div>
         </form>
       )}
-    </div>
+    </Card>
   );
 }

@@ -1,7 +1,11 @@
 import { useEffect, useState } from 'react';
 import type { FormEvent } from 'react';
+import { X } from 'lucide-react';
 import { api } from '@/lib/api';
 import { formatDate, parseDateOnly } from '@/lib/format';
+import { Alert, Button, Checkbox, Field, IconButton, Input, Select, Textarea } from '@/components/ui';
+import { Modal } from '@/components/ui/Modal';
+import { useToast } from '@/components/ui/Toast';
 import type { Category, Cycle, Subscription, SubscriptionStatus } from '@/lib/types';
 
 interface Props {
@@ -32,11 +36,8 @@ const PAYMENT_METHODS = [
   { value: 'other', label: '其他' },
 ];
 
-const inputClass =
-  'w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none transition focus:border-slate-900';
-const labelClass = 'mb-1 block text-xs font-medium text-slate-600';
-
 export function SubscriptionForm({ open, initial, categories, onClose, onSaved }: Props) {
+  const toast = useToast();
   const [name, setName] = useState('');
   const [categoryId, setCategoryId] = useState('');
   const [amount, setAmount] = useState('');
@@ -123,6 +124,7 @@ export function SubscriptionForm({ open, initial, categories, onClose, onSaved }
       } else {
         await api('/subscriptions', { method: 'POST', body: { ...body, status } });
       }
+      toast.success(initial ? `已保存「${name.trim()}」的修改` : `已创建「${name.trim()}」`);
       onSaved();
       onClose();
     } catch (err) {
@@ -132,40 +134,32 @@ export function SubscriptionForm({ open, initial, categories, onClose, onSaved }
     }
   }
 
-  if (!open) return null;
-
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-slate-900/40 p-4 sm:items-center">
-      <form
-        onSubmit={onSubmit}
-        className="w-full max-w-lg space-y-4 rounded-xl bg-white p-6 shadow-xl"
-      >
-        <h2 className="text-lg font-bold text-slate-900">
-          {initial ? '编辑订阅' : '新建订阅'}
-        </h2>
+    <Modal open={open} onClose={onClose}>
+      <form onSubmit={onSubmit} className="space-y-4 p-6">
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-semibold tracking-tight text-slate-900">
+            {initial ? '编辑订阅' : '新建订阅'}
+          </h2>
+          <IconButton onClick={onClose} aria-label="关闭">
+            <X className="h-4 w-4" aria-hidden />
+          </IconButton>
+        </div>
 
-        <div className="grid grid-cols-2 gap-3">
-          <div className="col-span-2">
-            <label className={labelClass} htmlFor="sub-name">
-              名称 *
-            </label>
-            <input
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <Field label="名称 *" htmlFor="sub-name" className="sm:col-span-2">
+            <Input
               id="sub-name"
-              className={inputClass}
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="如:腾讯视频 VIP"
               maxLength={60}
             />
-          </div>
+          </Field>
 
-          <div>
-            <label className={labelClass} htmlFor="sub-category">
-              分类
-            </label>
-            <select
+          <Field label="分类" htmlFor="sub-category">
+            <Select
               id="sub-category"
-              className={inputClass}
               value={categoryId}
               onChange={(e) => setCategoryId(e.target.value)}
             >
@@ -175,16 +169,12 @@ export function SubscriptionForm({ open, initial, categories, onClose, onSaved }
                   {c.name}
                 </option>
               ))}
-            </select>
-          </div>
+            </Select>
+          </Field>
 
-          <div>
-            <label className={labelClass} htmlFor="sub-payment">
-              支付方式
-            </label>
-            <select
+          <Field label="支付方式" htmlFor="sub-payment">
+            <Select
               id="sub-payment"
-              className={inputClass}
               value={paymentMethod}
               onChange={(e) => setPaymentMethod(e.target.value)}
             >
@@ -193,17 +183,13 @@ export function SubscriptionForm({ open, initial, categories, onClose, onSaved }
                   {m.label}
                 </option>
               ))}
-            </select>
-          </div>
+            </Select>
+          </Field>
 
           <div className="grid grid-cols-[1fr_90px] gap-3">
-            <div>
-              <label className={labelClass} htmlFor="sub-amount">
-                单次金额 *
-              </label>
-              <input
+            <Field label="单次金额 *" htmlFor="sub-amount">
+              <Input
                 id="sub-amount"
-                className={inputClass}
                 type="number"
                 min="0"
                 step="0.01"
@@ -211,14 +197,10 @@ export function SubscriptionForm({ open, initial, categories, onClose, onSaved }
                 onChange={(e) => setAmount(e.target.value)}
                 placeholder="30"
               />
-            </div>
-            <div>
-              <label className={labelClass} htmlFor="sub-currency">
-                币种
-              </label>
-              <select
+            </Field>
+            <Field label="币种" htmlFor="sub-currency">
+              <Select
                 id="sub-currency"
-                className={inputClass}
                 value={currency}
                 onChange={(e) => setCurrency(e.target.value)}
               >
@@ -227,65 +209,45 @@ export function SubscriptionForm({ open, initial, categories, onClose, onSaved }
                     {c}
                   </option>
                 ))}
-              </select>
-            </div>
+              </Select>
+            </Field>
           </div>
 
-          <div>
-            <label className={labelClass} htmlFor="sub-cycle">
-              周期
-            </label>
-            <select
-              id="sub-cycle"
-              className={inputClass}
-              value={cycle}
-              onChange={(e) => setCycle(e.target.value as Cycle)}
-            >
+          <Field label="周期" htmlFor="sub-cycle">
+            <Select id="sub-cycle" value={cycle} onChange={(e) => setCycle(e.target.value as Cycle)}>
               {CYCLE_OPTIONS.map((o) => (
                 <option key={o.value} value={o.value}>
                   {o.label}
                 </option>
               ))}
-            </select>
-          </div>
+            </Select>
+          </Field>
 
           {cycle === 'custom' && (
-            <div>
-              <label className={labelClass} htmlFor="sub-custom-days">
-                周期天数(1-365)
-              </label>
-              <input
+            <Field label="周期天数(1-365)" htmlFor="sub-custom-days">
+              <Input
                 id="sub-custom-days"
-                className={inputClass}
                 type="number"
                 min="1"
                 max="365"
                 value={customDays}
                 onChange={(e) => setCustomDays(e.target.value)}
               />
-            </div>
+            </Field>
           )}
 
-          <div>
-            <label className={labelClass} htmlFor="sub-first-date">
-              首次扣款日 *
-            </label>
-            <input
+          <Field label="首次扣款日 *" htmlFor="sub-first-date">
+            <Input
               id="sub-first-date"
-              className={inputClass}
               type="date"
               value={firstPaymentDate}
               onChange={(e) => setFirstPaymentDate(e.target.value)}
             />
-          </div>
+          </Field>
 
-          <div>
-            <label className={labelClass} htmlFor="sub-status">
-              状态
-            </label>
-            <select
+          <Field label="状态" htmlFor="sub-status">
+            <Select
               id="sub-status"
-              className={inputClass}
               value={status}
               onChange={(e) => setStatus(e.target.value as SubscriptionStatus)}
             >
@@ -293,56 +255,40 @@ export function SubscriptionForm({ open, initial, categories, onClose, onSaved }
               <option value="trial">试用</option>
               {initial && <option value="paused">暂停</option>}
               {initial && <option value="cancelled">已取消</option>}
-            </select>
-          </div>
+            </Select>
+          </Field>
 
-          <div className="col-span-2">
-            <label className={labelClass} htmlFor="sub-notes">
-              备注
-            </label>
-            <textarea
+          <Field label="备注" htmlFor="sub-notes" className="sm:col-span-2">
+            <Textarea
               id="sub-notes"
-              className={inputClass}
               rows={2}
               maxLength={200}
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               placeholder="如:年付优惠到 2027-01"
             />
-          </div>
+          </Field>
 
-          <label className="col-span-2 flex items-center gap-2 text-sm text-slate-600">
-            <input
-              type="checkbox"
+          <label className="flex cursor-pointer items-center gap-2 text-sm text-slate-600 sm:col-span-2">
+            <Checkbox
               checked={autoRenew}
               onChange={(e) => setAutoRenew(e.target.checked)}
-              className="h-4 w-4 accent-slate-900"
             />
             开通了自动续费(到期前重点提醒)
           </label>
         </div>
 
-        {error && (
-          <div className="rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-600">{error}</div>
-        )}
+        {error && <Alert tone="error">{error}</Alert>}
 
-        <div className="flex justify-end gap-2">
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-lg border border-slate-200 px-4 py-2 text-sm text-slate-600 transition hover:bg-slate-100"
-          >
+        <div className="flex justify-end gap-2 pt-1">
+          <Button variant="secondary" onClick={onClose}>
             取消
-          </button>
-          <button
-            type="submit"
-            disabled={submitting}
-            className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-slate-700 disabled:opacity-50"
-          >
+          </Button>
+          <Button type="submit" loading={submitting}>
             {submitting ? '保存中…' : '保存'}
-          </button>
+          </Button>
         </div>
       </form>
-    </div>
+    </Modal>
   );
 }

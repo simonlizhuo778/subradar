@@ -1,10 +1,9 @@
 import { useState } from 'react';
 import type { FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import wangcaiUrl from '@/assets/wangcai.gif';
 import { useAuth } from '@/lib/auth';
-
-const inputClass =
-  'w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none transition focus:border-slate-900';
+import { Alert, Button, Card, Field, Input } from '@/components/ui';
 
 export function Login() {
   const { login } = useAuth();
@@ -29,73 +28,71 @@ export function Login() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-slate-50 px-4">
-      <div className="w-full max-w-sm">
-        <div className="mb-6 text-center">
-          <div className="text-4xl">📡</div>
-          <h1 className="mt-2 text-2xl font-bold text-slate-900">订阅雷达 SubRadar</h1>
-          <p className="mt-1 text-sm text-slate-500">从你的真实账单里,把忘了的订阅找出来</p>
+    <div className="flex min-h-screen items-center justify-center bg-canvas px-4 py-10">
+      <div className="w-full max-w-sm animate-fade-up">
+        <div className="mb-8 text-center">
+          {/* 旺财 GIF:16:9 横版大留白,按角色包围盒精确裁切到 64px 品牌位 */}
+          <div className="mx-auto flex h-16 w-16 items-center justify-center overflow-hidden">
+            <img
+              src={wangcaiUrl}
+              alt="旺财"
+              draggable={false}
+              className="h-[68px] w-auto max-w-none translate-x-[3px] select-none"
+            />
+          </div>
+          <h1 className="mt-4 text-2xl font-semibold tracking-tight text-slate-900">
+            订阅雷达 SubRadar
+          </h1>
+          <p className="mt-1.5 text-sm text-slate-500">从你的真实账单里,把忘了的订阅找出来</p>
         </div>
 
-        <form
-          onSubmit={onSubmit}
-          className="space-y-4 rounded-xl border border-slate-200 bg-white p-6 shadow-sm"
-        >
-          <div>
-            <label className="mb-1 block text-sm font-medium text-slate-700" htmlFor="email">
-              邮箱
-            </label>
-            <input
-              id="email"
-              type="email"
-              required
-              autoComplete="email"
-              className={inputClass}
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="demo@subradar.app"
-            />
-          </div>
+        <Card className="p-6">
+          <form onSubmit={onSubmit} className="space-y-4">
+            <Field label="邮箱" htmlFor="email">
+              <Input
+                id="email"
+                type="email"
+                required
+                autoComplete="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="demo@subradar.app"
+              />
+            </Field>
 
-          <div>
-            <label className="mb-1 block text-sm font-medium text-slate-700" htmlFor="password">
-              密码
-            </label>
-            <input
-              id="password"
-              type="password"
-              required
-              autoComplete="current-password"
-              className={inputClass}
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="••••••••"
-            />
-          </div>
+            <Field label="密码" htmlFor="password">
+              <Input
+                id="password"
+                type="password"
+                required
+                autoComplete="current-password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="••••••••"
+              />
+            </Field>
 
-          {error && (
-            <div className="rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-600">{error}</div>
-          )}
+            {error && <Alert tone="error">{error}</Alert>}
 
-          <button
-            type="submit"
-            disabled={submitting}
-            className="w-full rounded-lg bg-slate-900 py-2 text-sm font-medium text-white transition hover:bg-slate-700 disabled:opacity-50"
-          >
-            {submitting ? '登录中…' : '登录'}
-          </button>
+            <Button type="submit" size="lg" loading={submitting} className="w-full">
+              {submitting ? '登录中…' : '登录'}
+            </Button>
 
-          <p className="text-center text-sm text-slate-500">
-            还没有账号?
-            <Link className="ml-1 font-medium text-slate-900 underline" to="/register">
-              注册
-            </Link>
-          </p>
+            <p className="text-center text-sm text-slate-500">
+              还没有账号?
+              <Link
+                className="ml-1 font-medium text-accent-600 transition-colors duration-150 hover:text-accent-700"
+                to="/register"
+              >
+                注册
+              </Link>
+            </p>
 
-          <p className="rounded-md bg-slate-50 p-2 text-center text-xs text-slate-400">
-            演示账号:demo@subradar.app / demo1234
-          </p>
-        </form>
+            <p className="rounded-lg border border-slate-900/4 bg-slate-50 px-3 py-2 text-center text-xs text-slate-400">
+              演示账号:demo@subradar.app / demo1234
+            </p>
+          </form>
+        </Card>
       </div>
     </div>
   );

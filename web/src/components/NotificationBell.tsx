@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { Bell, CalendarClock } from 'lucide-react';
 import { api } from '@/lib/api';
 import { formatDate, money, relativeDue } from '@/lib/format';
 import type { ReminderItem } from '@/lib/types';
@@ -11,6 +12,7 @@ export function NotificationBell() {
   const [permission, setPermission] = useState<NotificationPermission>(
     typeof Notification !== 'undefined' ? Notification.permission : 'denied',
   );
+  const rootRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -45,6 +47,23 @@ export function NotificationBell() {
     };
   }, []);
 
+  // 点外部 / ESC 关闭下拉
+  useEffect(() => {
+    if (!open) return;
+    const onPointerDown = (e: MouseEvent) => {
+      if (rootRef.current && !rootRef.current.contains(e.target as Node)) setOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setOpen(false);
+    };
+    document.addEventListener('mousedown', onPointerDown);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('mousedown', onPointerDown);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [open]);
+
   async function requestPermission() {
     if (typeof Notification === 'undefined') return;
     const result = await Notification.requestPermission();
@@ -54,38 +73,44 @@ export function NotificationBell() {
   const count = items?.length ?? 0;
 
   return (
-    <div className="relative">
+    <div className="relative" ref={rootRef}>
       <button
+        type="button"
         onClick={() => setOpen((v) => !v)}
-        className="relative rounded-md px-2 py-1.5 text-lg leading-none transition hover:bg-slate-100"
+        className="relative flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 transition-colors duration-150 hover:bg-slate-900/5 hover:text-slate-800"
         title="到期提醒"
+        aria-label={`到期提醒${count > 0 ? `,${count} 条` : ''}`}
       >
-        🔔
+        <Bell className="h-4.5 w-4.5" aria-hidden />
         {count > 0 && (
-          <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-rose-500 px-1 text-[10px] font-medium text-white">
+          <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-rose-500 px-1 text-[10px] font-medium text-white ring-2 ring-canvas">
             {count > 9 ? '9+' : count}
           </span>
         )}
       </button>
 
       {open && (
-        <div className="absolute right-0 top-10 z-40 w-80 rounded-xl border border-slate-200 bg-white p-3 shadow-xl">
+        <div className="absolute right-0 top-10 z-40 w-80 max-w-[calc(100vw-2rem)] animate-scale-in rounded-2xl border border-slate-900/8 bg-white p-3 shadow-pop">
           <div className="flex items-center justify-between px-1 pb-2">
             <span className="text-sm font-semibold text-slate-900">到期提醒</span>
             {permission === 'default' && (
               <button
+                type="button"
                 onClick={() => void requestPermission()}
-                className="text-xs text-slate-500 underline hover:text-slate-800"
+                className="text-xs font-medium text-accent-600 transition-colors duration-150 hover:text-accent-700"
               >
                 开启浏览器通知
               </button>
             )}
           </div>
-          {items === null && <p className="px-1 py-2 text-sm text-slate-400">加载中…</p>}
+          {items === null && <p className="px-1 py-3 text-sm text-slate-400">加载中…</p>}
           {items?.length === 0 && (
-            <p className="px-1 py-3 text-sm text-slate-400">近 30 天没有提醒,岁月静好。</p>
+            <div className="flex flex-col items-center px-1 py-6 text-center">
+              <CalendarClock className="h-6 w-6 text-slate-300" aria-hidden />
+              <p className="mt-2 text-sm text-slate-400">近 30 天没有提醒,岁月静好。</p>
+            </div>
           )}
-          <ul className="max-h-72 divide-y divide-slate-100 overflow-y-auto">
+          <ul className="max-h-72 divide-y divide-slate-900/5 overflow-y-auto">
             {items?.map((item) => (
               <li key={item.id} className="flex items-center justify-between gap-2 px-1 py-2.5">
                 <div className="min-w-0">

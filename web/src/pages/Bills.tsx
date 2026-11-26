@@ -1,7 +1,19 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { ArrowRight, CheckCircle2, ChevronDown, FileSpreadsheet, Upload } from 'lucide-react';
 import { api, getToken } from '@/lib/api';
 import { formatDate, money } from '@/lib/format';
+import {
+  Alert,
+  Badge,
+  Button,
+  Card,
+  EmptyState,
+  PageHeader,
+  Segmented,
+  Skeleton,
+  cx,
+} from '@/components/ui';
 import type {
   BillImportDetail,
   BillImportRecord,
@@ -10,8 +22,8 @@ import type {
 } from '@/lib/types';
 
 const SOURCES = [
-  { key: 'alipay', label: '支付宝账单' },
-  { key: 'wechat', label: '微信账单' },
+  { value: 'alipay', label: '支付宝账单' },
+  { value: 'wechat', label: '微信账单' },
 ];
 
 const SOURCE_LABEL: Record<string, string> = {
@@ -89,28 +101,14 @@ export function Bills() {
   }
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-xl font-bold text-slate-900">账单导入</h1>
-        <p className="mt-1 text-sm text-slate-500">
-          导出支付宝/微信账单 CSV,自动识别周期性扣款 —— 把你自己都忘了的订阅找出来。
-        </p>
-      </div>
+    <div className="animate-fade-up space-y-6">
+      <PageHeader
+        title="账单导入"
+        description="导出支付宝/微信账单 CSV,自动识别周期性扣款 —— 把你自己都忘了的订阅找出来。"
+      />
 
-      <div className="rounded-xl border border-slate-200 bg-white p-5">
-        <div className="mb-4 flex rounded-lg border border-slate-200 p-0.5">
-          {SOURCES.map((s) => (
-            <button
-              key={s.key}
-              onClick={() => setSource(s.key)}
-              className={`flex-1 rounded-md px-3 py-1.5 text-sm transition ${
-                source === s.key ? 'bg-slate-900 font-medium text-white' : 'text-slate-600'
-              }`}
-            >
-              {s.label}
-            </button>
-          ))}
-        </div>
+      <Card className="p-5">
+        <Segmented fluid className="mb-4" options={SOURCES} value={source} onChange={setSource} />
 
         <div className="flex flex-wrap items-center gap-3">
           <input
@@ -122,9 +120,19 @@ export function Bills() {
               const file = e.target.files?.[0];
               if (file) void upload(file);
             }}
-            className="text-sm text-slate-600 file:mr-3 file:rounded-lg file:border-0 file:bg-slate-900 file:px-4 file:py-2 file:text-sm file:font-medium file:text-white hover:file:bg-slate-700"
+            className="hidden"
           />
-          {uploading && <span className="text-sm text-slate-400">解析与识别中…</span>}
+          <Button
+            variant="secondary"
+            loading={uploading}
+            onClick={() => fileRef.current?.click()}
+          >
+            {!uploading && <Upload className="h-4 w-4 text-slate-400" aria-hidden />}
+            {uploading ? '解析与识别中…' : '选择账单 CSV 文件'}
+          </Button>
+          <span className="text-xs text-slate-400">
+            当前来源:{SOURCE_LABEL[source] ?? source}
+          </span>
         </div>
 
         <p className="mt-3 text-xs leading-5 text-slate-400">
@@ -133,18 +141,26 @@ export function Bills() {
           识别结果进入待确认队列,不会直接入库。
         </p>
 
-        {error && (
-          <div className="mt-3 rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-600">{error}</div>
-        )}
+        {error && <Alert tone="error" className="mt-3">{error}</Alert>}
 
         {result && (
-          <div className="mt-4 space-y-3 rounded-lg border border-emerald-200 bg-emerald-50/60 p-4">
-            <p className="text-sm font-medium text-emerald-800">{result.message}</p>
-            <div className="flex flex-wrap gap-4 text-sm text-emerald-700">
-              <span>数据行 {result.import.totalRows}</span>
-              <span>有效支出 {result.import.validRows}</span>
-              <span>解析失败 {result.failed.count}</span>
-              <span>疑似订阅 {result.candidates.length}</span>
+          <div className="mt-4 space-y-3 rounded-xl border border-emerald-100 bg-emerald-50/60 p-4">
+            <p className="flex items-start gap-2 text-sm font-medium text-emerald-800">
+              <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" aria-hidden />
+              {result.message}
+            </p>
+            <div className="flex flex-wrap gap-x-6 gap-y-2">
+              {[
+                { label: '数据行', value: result.import.totalRows },
+                { label: '有效支出', value: result.import.validRows },
+                { label: '解析失败', value: result.failed.count },
+                { label: '疑似订阅', value: result.candidates.length },
+              ].map((stat) => (
+                <div key={stat.label}>
+                  <div className="text-lg font-semibold text-emerald-800">{stat.value}</div>
+                  <div className="text-xs text-emerald-600/80">{stat.label}</div>
+                </div>
+              ))}
             </div>
             {result.failed.samples.length > 0 && (
               <details className="text-xs text-emerald-700">
@@ -158,44 +174,67 @@ export function Bills() {
                 </ul>
               </details>
             )}
-            <Link
-              to="/ai"
-              className="inline-block rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-slate-700"
-            >
-              去待确认队列处理({result.candidates.length} 条)→
+            <Link to="/ai" className="inline-block">
+              <Button size="sm">
+                去待确认队列处理({result.candidates.length} 条)
+                <ArrowRight className="h-3.5 w-3.5" aria-hidden />
+              </Button>
             </Link>
           </div>
         )}
-      </div>
+      </Card>
 
       <div className="space-y-3">
-        <h2 className="font-semibold text-slate-900">导入历史</h2>
-        {history === null && <p className="text-sm text-slate-400">加载中…</p>}
+        <h2 className="text-[15px] font-semibold text-slate-900">导入历史</h2>
+        {history === null && (
+          <div className="space-y-3">
+            {Array.from({ length: 2 }).map((_, i) => (
+              <Card key={i} className="p-4">
+                <Skeleton className="h-5 w-1/2" />
+              </Card>
+            ))}
+          </div>
+        )}
         {history?.length === 0 && (
-          <p className="rounded-xl border border-dashed border-slate-300 bg-white p-6 text-center text-sm text-slate-400">
-            还没有导入过账单。
-          </p>
+          <Card>
+            <EmptyState
+              icon={FileSpreadsheet}
+              title="还没有导入过账单"
+              description="导入一份支付宝或微信账单 CSV,自动发现周期性扣款。"
+            />
+          </Card>
         )}
         {history?.map((record) => (
-          <div key={record.id} className="rounded-xl border border-slate-200 bg-white">
+          <Card key={record.id} className="overflow-hidden">
             <button
+              type="button"
               onClick={() => void toggleExpand(record.id)}
-              className="flex w-full flex-wrap items-center gap-3 px-4 py-3 text-left transition hover:bg-slate-50"
+              className="flex w-full flex-wrap items-center gap-3 px-4 py-3.5 text-left transition-colors duration-150 hover:bg-slate-50"
             >
-              <span className="rounded bg-slate-100 px-2 py-0.5 text-xs text-slate-500">
-                {SOURCE_LABEL[record.source] ?? record.source}
+              <Badge tone="neutral">{SOURCE_LABEL[record.source] ?? record.source}</Badge>
+              <span className="min-w-0 truncate text-sm font-medium text-slate-800">
+                {record.filename}
               </span>
-              <span className="text-sm text-slate-700">{record.filename}</span>
               <span className="text-xs text-slate-400">
                 {formatDate(record.createdAt)} · 有效 {record.validRows}/{record.totalRows} 行
               </span>
-              <span className="ml-auto text-xs text-slate-300">
-                {expanded === record.id ? '收起 ▲' : '明细 ▼'}
-              </span>
+              <ChevronDown
+                className={cx(
+                  'ml-auto h-4 w-4 shrink-0 text-slate-400 transition-transform duration-200',
+                  expanded === record.id && 'rotate-180',
+                )}
+                aria-hidden
+              />
             </button>
             {expanded === record.id && (
-              <div className="border-t border-slate-100 p-4">
-                {!detail && <p className="text-sm text-slate-400">加载中…</p>}
+              <div className="animate-fade-in border-t border-slate-900/6 p-4">
+                {!detail && (
+                  <div className="space-y-2">
+                    <Skeleton className="h-4 w-full" />
+                    <Skeleton className="h-4 w-5/6" />
+                    <Skeleton className="h-4 w-2/3" />
+                  </div>
+                )}
                 {detail && (
                   <>
                     {detail.candidates.length > 0 && (
@@ -208,7 +247,7 @@ export function Bills() {
                 )}
               </div>
             )}
-          </div>
+          </Card>
         ))}
       </div>
     </div>
@@ -217,26 +256,26 @@ export function Bills() {
 
 function TransactionsTable({ transactions }: { transactions: BillTransactionRow[] }) {
   if (transactions.length === 0) {
-    return <p className="text-sm text-slate-400">无流水记录。</p>;
+    return <p className="py-2 text-sm text-slate-400">无流水记录。</p>;
   }
   return (
     <div className="overflow-x-auto">
       <table className="w-full min-w-[560px] text-sm">
         <thead>
-          <tr className="border-b border-slate-100 text-left text-xs text-slate-400">
+          <tr className="border-b border-slate-900/6 text-left text-xs text-slate-400">
             <th className="py-2 pr-4 font-medium">日期</th>
             <th className="py-2 pr-4 font-medium">交易对方</th>
             <th className="py-2 pr-4 font-medium">商品说明</th>
             <th className="py-2 text-right font-medium">金额</th>
           </tr>
         </thead>
-        <tbody className="divide-y divide-slate-50">
+        <tbody className="divide-y divide-slate-900/4">
           {transactions.map((t) => (
-            <tr key={t.id}>
-              <td className="py-2 pr-4 text-slate-600">{formatDate(t.occurredAt)}</td>
-              <td className="py-2 pr-4 text-slate-700">{t.merchant}</td>
-              <td className="py-2 pr-4 text-slate-400">{t.memo ?? '—'}</td>
-              <td className="py-2 text-right font-medium text-slate-900">
+            <tr key={t.id} className="transition-colors duration-150 hover:bg-slate-50/70">
+              <td className="py-2.5 pr-4 text-slate-600">{formatDate(t.occurredAt)}</td>
+              <td className="py-2.5 pr-4 text-slate-700">{t.merchant}</td>
+              <td className="py-2.5 pr-4 text-slate-400">{t.memo ?? '—'}</td>
+              <td className="py-2.5 text-right font-medium text-slate-900">
                 {money(t.amount, 'CNY')}
               </td>
             </tr>

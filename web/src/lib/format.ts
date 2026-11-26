@@ -38,13 +38,13 @@ export const STATUS_LABELS: Record<SubscriptionStatus, string> = {
 export function statusClass(status: SubscriptionStatus): string {
   switch (status) {
     case 'active':
-      return 'bg-emerald-50 text-emerald-600';
+      return 'bg-emerald-50 text-emerald-700';
     case 'trial':
-      return 'bg-sky-50 text-sky-600';
+      return 'bg-sky-50 text-sky-700';
     case 'paused':
-      return 'bg-amber-50 text-amber-600';
+      return 'bg-amber-50 text-amber-700';
     case 'cancelled':
-      return 'bg-slate-100 text-slate-400';
+      return 'bg-slate-100 text-slate-500';
   }
 }
 

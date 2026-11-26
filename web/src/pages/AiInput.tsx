@@ -1,11 +1,24 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { ClipboardEvent, DragEvent } from 'react';
 import { Link } from 'react-router-dom';
+import { ImagePlus, Inbox, Mic, Sparkles, X } from 'lucide-react';
 import { api, getToken } from '@/lib/api';
 import { compressImage } from '@/lib/image';
 import { createRecognizer, describeSpeechError, getSpeechRecognition } from '@/lib/speech';
 import type { SpeechRecognitionLike } from '@/lib/speech';
 import { CandidateCard } from '@/components/CandidateCard';
+import {
+  Alert,
+  Badge,
+  Button,
+  Card,
+  EmptyState,
+  PageHeader,
+  Segmented,
+  Skeleton,
+  Textarea,
+  cx,
+} from '@/components/ui';
 import type { AiSettingsInfo, CandidateRow, Category } from '@/lib/types';
 
 export function AiInput() {
@@ -185,43 +198,33 @@ export function AiInput() {
   const notConfigured = info && !info.configured;
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-xl font-bold text-slate-900">AI 快速录入</h1>
-        <p className="mt-1 text-sm text-slate-500">
-          丢一张付款截图、粘一段账单短信,AI 抽取成订阅草稿,确认后自动入库并回填历史。
-        </p>
-      </div>
+    <div className="animate-fade-up space-y-6">
+      <PageHeader
+        title="AI 快速录入"
+        description="丢一张付款截图、粘一段账单短信,AI 抽取成订阅草稿,确认后自动入库并回填历史。"
+      />
 
       {notConfigured && (
-        <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-700">
+        <Alert tone="warning">
           还没有配置 AI。带上你自己购买的 API Key 去
-          <Link to="/settings" className="mx-1 font-medium underline">
+          <Link to="/settings" className="mx-1 font-medium underline underline-offset-2">
             设置 → AI 接入
           </Link>
           ,一分钟即可完成。
-        </div>
+        </Alert>
       )}
 
-      <div className="rounded-xl border border-slate-200 bg-white p-5">
-        <div className="mb-4 flex rounded-lg border border-slate-200 p-0.5">
-          {(
-            [
-              { key: 'image', label: '截图 / 照片' },
-              { key: 'text', label: '文本(短信/口述)' },
-            ] as const
-          ).map((t) => (
-            <button
-              key={t.key}
-              onClick={() => setMode(t.key)}
-              className={`flex-1 rounded-md px-3 py-1.5 text-sm transition ${
-                mode === t.key ? 'bg-slate-900 font-medium text-white' : 'text-slate-600'
-              }`}
-            >
-              {t.label}
-            </button>
-          ))}
-        </div>
+      <Card className="p-5">
+        <Segmented
+          fluid
+          className="mb-4"
+          value={mode}
+          onChange={setMode}
+          options={[
+            { value: 'image', label: '截图 / 照片' },
+            { value: 'text', label: '文本(短信/口述)' },
+          ]}
+        />
 
         {mode === 'image' ? (
           <div>
@@ -234,9 +237,12 @@ export function AiInput() {
               onDrop={onDrop}
               onPaste={onPaste}
               tabIndex={0}
-              className={`flex min-h-36 cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed p-4 text-center transition focus:outline-none ${
-                dragging ? 'border-slate-900 bg-slate-50' : 'border-slate-300 hover:border-slate-400'
-              }`}
+              className={cx(
+                'flex min-h-40 cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed p-4 text-center transition-colors duration-150 focus:outline-none',
+                dragging
+                  ? 'border-accent-500 bg-accent-50/60'
+                  : 'border-slate-300 hover:border-accent-400 hover:bg-accent-50/30',
+              )}
               onClick={() => document.getElementById('ai-file-input')?.click()}
             >
               {previewUrl ? (
@@ -244,7 +250,7 @@ export function AiInput() {
                   <img
                     src={previewUrl}
                     alt="待识别截图预览"
-                    className="mx-auto max-h-48 rounded-lg"
+                    className="mx-auto max-h-48 rounded-lg shadow-sm"
                   />
                   <p className="mt-2 text-xs text-slate-400">
                     {file?.name}(上传前会压缩到长边 1280px)
@@ -252,9 +258,12 @@ export function AiInput() {
                 </div>
               ) : (
                 <div>
-                  <div className="text-3xl">🖼️</div>
-                  <p className="mt-2 text-sm text-slate-600">
-                    点击选择、拖入,或直接 <b>Ctrl+V 粘贴</b> 付款截图
+                  <ImagePlus
+                    className={cx('mx-auto h-8 w-8', dragging ? 'text-accent-500' : 'text-slate-300')}
+                    aria-hidden
+                  />
+                  <p className="mt-2.5 text-sm text-slate-600">
+                    点击选择、拖入,或直接 <b className="font-semibold">Ctrl+V 粘贴</b> 付款截图
                   </p>
                   <p className="mt-1 text-xs text-slate-400">支持手机拍照上传 · 单张 ≤ 5MB</p>
                 </div>
@@ -269,43 +278,36 @@ export function AiInput() {
               />
             </div>
             {previewUrl && (
-              <button
-                onClick={clearImage}
-                className="mt-2 text-xs text-slate-400 underline hover:text-slate-600"
-              >
+              <Button variant="ghost" size="sm" className="mt-2" onClick={clearImage}>
+                <X className="h-3.5 w-3.5" aria-hidden />
                 移除图片
-              </button>
+              </Button>
             )}
           </div>
         ) : (
           <div>
             {listening ? (
-              <div className="mb-3 flex items-center gap-3 rounded-lg bg-rose-50 px-4 py-3">
-                <span className="h-3 w-3 shrink-0 animate-pulse rounded-full bg-rose-500" />
+              <div className="mb-3 flex items-center gap-3 rounded-xl bg-rose-50 px-4 py-3">
+                <span className="h-2.5 w-2.5 shrink-0 animate-pulse-soft rounded-full bg-rose-500" />
                 <span className="flex-1 truncate text-sm text-rose-700">
                   {interim || '正在听…说完后点右侧按钮'}
                 </span>
-                <button
-                  onClick={stopListening}
-                  className="shrink-0 rounded-md bg-rose-600 px-3 py-1.5 text-xs font-medium text-white transition hover:bg-rose-500"
-                >
+                <Button variant="danger" size="sm" className="shrink-0" onClick={stopListening}>
                   说完了
-                </button>
+                </Button>
               </div>
             ) : speechSupported ? (
-              <button
-                onClick={startListening}
-                className="mb-3 flex items-center gap-2 rounded-lg border border-slate-200 px-4 py-2 text-sm text-slate-600 transition hover:bg-slate-50"
-              >
-                🎙️ 语音输入(浏览器本地转写,免费不耗额度)
-              </button>
+              <Button variant="secondary" className="mb-3" onClick={startListening}>
+                <Mic className="h-4 w-4 text-slate-400" aria-hidden />
+                语音输入(浏览器本地转写,免费不耗额度)
+              </Button>
             ) : (
               <p className="mb-3 text-xs text-slate-400">
                 当前浏览器不支持语音识别,可直接输入文本
               </p>
             )}
-            <textarea
-              className="min-h-32 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none transition focus:border-slate-900"
+            <Textarea
+              className="min-h-32"
               placeholder={'粘贴账单短信,或直接口述,例如:\n我上个月开了个腾讯视频VIP,30 块一个月,自动续费'}
               value={text}
               maxLength={4000}
@@ -314,37 +316,46 @@ export function AiInput() {
           </div>
         )}
 
-        <div className="mt-4 flex items-center gap-3">
-          <button
+        <div className="mt-4 flex flex-wrap items-center gap-3">
+          <Button
+            size="lg"
             onClick={() => void extract()}
             disabled={extracting || listening || notConfigured === true}
-            className="rounded-lg bg-slate-900 px-5 py-2 text-sm font-medium text-white transition hover:bg-slate-700 disabled:opacity-50"
+            loading={extracting}
           >
+            {!extracting && <Sparkles className="h-4 w-4" aria-hidden />}
             {extracting ? '识别中…(消耗模型额度)' : '开始识别'}
-          </button>
+          </Button>
           <span className="text-xs text-slate-400">识别结果先进待确认队列,不会直接入库</span>
         </div>
 
-        {error && (
-          <div className="mt-3 rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-600">{error}</div>
-        )}
-        {message && (
-          <div className="mt-3 rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-700">
-            {message}
-          </div>
-        )}
-      </div>
+        {error && <Alert tone="error" className="mt-3">{error}</Alert>}
+        {message && <Alert tone="success" className="mt-3">{message}</Alert>}
+      </Card>
 
       <div className="space-y-3">
         <div className="flex items-center justify-between">
-          <h2 className="font-semibold text-slate-900">待确认队列</h2>
-          <span className="text-sm text-slate-400">{candidates?.length ?? 0} 条待处理</span>
+          <h2 className="text-[15px] font-semibold text-slate-900">待确认队列</h2>
+          <Badge tone="neutral">{candidates?.length ?? 0} 条待处理</Badge>
         </div>
-        {candidates === null && <p className="text-sm text-slate-400">加载中…</p>}
+        {candidates === null && (
+          <div className="space-y-3">
+            {Array.from({ length: 2 }).map((_, i) => (
+              <Card key={i} className="p-4">
+                <Skeleton className="h-5 w-2/3" />
+                <Skeleton className="mt-2 h-4 w-1/3" />
+              </Card>
+            ))}
+          </div>
+        )}
         {candidates?.length === 0 && (
-          <p className="rounded-xl border border-dashed border-slate-300 bg-white p-6 text-center text-sm text-slate-400">
-            队列空空如也。去上面识别点什么吧。
-          </p>
+          <Card>
+            <EmptyState
+              icon={Inbox}
+              title="队列空空如也"
+              description="去上面识别点什么吧。"
+            />
+          </Card>
         )}
         {candidates?.map((candidate) => (
           <CandidateCard
