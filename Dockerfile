@@ -32,6 +32,8 @@ COPY --from=build /app/package.json ./package.json
 COPY --from=build /app/server/package.json ./server/package.json
 COPY --from=build /app/server/dist ./server/dist
 COPY --from=build /app/server/prisma ./server/prisma
+# seed.ts 会 import ../src/common/utils/cycle-date,运行时需要这份源码
+COPY --from=build /app/server/src ./server/src
 COPY --from=build /app/web/dist ./web/dist
 
 EXPOSE 8080

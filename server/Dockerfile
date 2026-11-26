@@ -25,6 +25,8 @@ ENV NODE_ENV=production \
 COPY --from=build /app/node_modules /app/node_modules
 COPY --from=build /app/server/dist ./dist
 COPY --from=build /app/server/prisma ./prisma
+# seed.ts 会 import ../src/common/utils/cycle-date,运行时需要这份源码
+COPY --from=build /app/server/src ./src
 
 EXPOSE 3000
 # 启动前建表(db push 幂等);可选灌入演示数据(SEED_DEMO=true)
